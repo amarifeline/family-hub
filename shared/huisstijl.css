@@ -1,0 +1,73 @@
+/* Family hub — huisstijl (room, wit, navy, beige) en kiosk-instellingen. */
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500&display=swap");
+@font-face { font-family: "Miltona"; src: url("Miltona.otf") format("opentype"); font-display: swap; }
+
+:root {
+  --room: #F1EDE4;
+  --wit: #FCFBF8;
+  --navy: #2C3E52;
+  --beige: #E1CFB9;
+  --lijn: #E6DFD2;
+  --zacht: #6B7785;
+
+  --aaron: #2B5374;
+  --feline: #B29B89;
+  --mila: #FFD5DC;
+  --finn: #C7E6FD;
+
+  --script: "Miltona", Cochin, Georgia, serif;
+  --serif: Cochin, Georgia, "Times New Roman", serif;
+  --sans: "Poppins", system-ui, sans-serif;
+
+  --radius: 18px;
+  --gutter: clamp(16px, 3vw, 40px);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--room);
+  color: var(--navy);
+  font-family: var(--serif);
+  /* Keukenscherm: geen tekst selecteren, geen zoom, geen menu bij lang drukken. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+}
+
+.label {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--zacht);
+}
+
+.knop {
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--navy);
+  background: var(--wit);
+  border: 1px solid var(--beige);
+  border-radius: 999px;
+  padding: 12px 22px;
+  min-height: 48px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.knop:active { background: var(--room); }
+.knop.vol { background: var(--navy); color: var(--wit); border-color: var(--navy); }
+
+/* Statusbolletje: verbonden / proefmodus / geen verbinding */
+.status { display: inline-flex; align-items: center; gap: 8px; }
+.status i { width: 9px; height: 9px; border-radius: 50%; background: var(--beige); display: inline-block; }
+.status[data-s="ok"] i { background: #7A9A7E; }
+.status[data-s="offline"] i, .status[data-s="sleutel"] i { background: #C27C6B; }
+.status[data-s="proef"] i { background: var(--feline); }

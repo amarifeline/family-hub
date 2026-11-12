@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Mila's fruitweek</title>
+<link rel="stylesheet" href="../shared/huisstijl.css">
+<style>
+:root{ --roze:#FFD5DC; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--room);color:var(--navy)}
+body{font-family:var(--sans);padding:24px 16px 48px}
+input{-webkit-user-select:text;user-select:text}
+.wrap{max-width:1180px;margin:0 auto}
+.balk{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;margin-bottom:22px}
+.balk .knop{justify-self:start}
+nav{display:flex;justify-content:center;gap:6px}
+nav button{font-family:var(--sans);font-size:12px;letter-spacing:.16em;text-transform:uppercase;background:transparent;color:var(--navy);border:1px solid transparent;border-radius:999px;padding:12px 22px;min-height:48px;cursor:pointer}
+nav button[aria-selected="true"]{border-color:var(--navy)}
+header{text-align:center;margin-bottom:28px}
+h1{font-family:var(--script);font-weight:normal;font-size:clamp(56px,9vw,88px);margin:0;line-height:1.05}
+.sub{font-family:var(--serif);font-size:20px;margin-top:22px}
+.week{display:grid;grid-template-columns:repeat(5,1fr);gap:16px}
+@media (max-width:900px){.week{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:560px){.week{grid-template-columns:1fr}}
+.card{background:var(--wit);border:1px solid var(--beige);border-radius:22px;padding:22px 16px 18px;text-align:center;display:flex;flex-direction:column;align-items:center}
+.card.vandaag{background:var(--roze);border-color:var(--roze)}
+.dag{font-size:12px;letter-spacing:.18em;text-transform:uppercase;font-weight:500}
+.vandaag .dag::after{content:" · vandaag"}
+.icoon{font-size:96px;line-height:1;margin:18px 0 10px}
+.naam{font-family:var(--serif);font-size:26px;margin-bottom:16px}
+.prep{border-top:1px solid var(--beige);padding-top:12px;width:100%;display:flex;flex-direction:column;gap:6px}
+.vandaag .prep{border-color:rgba(44,62,82,.18)}
+.prep span{font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px}
+.legend{font-size:10px;letter-spacing:.16em;text-transform:uppercase;opacity:.65;margin-bottom:4px}
+.btn{font-family:var(--sans);font-size:12px;letter-spacing:.14em;text-transform:uppercase;background:transparent;color:var(--navy);border:1px solid var(--navy);border-radius:999px;padding:11px 20px;min-height:48px;cursor:pointer}
+.btn.vol{background:var(--navy);color:var(--wit)}
+.msg{text-align:center;font-size:12px;margin-top:14px;min-height:18px}
+.leeg{text-align:center;font-family:var(--serif);font-size:20px;padding:48px 0}
+
+/* Beheer */
+h2{font-family:var(--serif);font-weight:normal;font-size:28px;margin:0 0 6px}
+.uitleg{font-size:13px;margin:0 0 18px;max-width:640px;line-height:1.55}
+section.blok{background:var(--wit);border:1px solid var(--beige);border-radius:22px;padding:24px;margin-bottom:20px}
+.lbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;font-weight:500;opacity:.7}
+.items{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+@media (max-width:900px){.items{grid-template-columns:1fr}}
+.fk{border:1px solid var(--beige);border-radius:18px;padding:16px 16px 12px;background:var(--wit)}
+.fk-top{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.fk-emoji{font-size:44px;line-height:1}
+.fk-naam{font-family:var(--serif);font-size:24px;flex:1}
+.fk.uit .fk-opties{opacity:.45}
+.fk.uit .fk-emoji{filter:grayscale(1);opacity:.6}
+.rij{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--room)}
+.rij .lbl{width:78px;flex:none}
+.opts{display:flex;gap:8px;flex-wrap:wrap}
+.opt{width:54px;height:54px;border-radius:14px;border:2px solid transparent;background:var(--room);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;color:var(--navy);-webkit-tap-highlight-color:transparent}
+.opt svg{width:34px;height:34px}
+.opt[aria-pressed="true"]{background:var(--roze);border-color:var(--navy)}
+.opt:disabled{cursor:default}
+.frigo{display:inline-flex;align-items:center;gap:8px;border:2px solid var(--beige);background:var(--wit);border-radius:999px;padding:6px 14px 6px 8px;font-family:var(--sans);font-size:12px;color:var(--navy);cursor:pointer;min-height:48px}
+.frigo svg{width:30px;height:30px}
+.frigo[aria-pressed="true"]{background:var(--roze);border-color:var(--navy)}
+.fk-voet{display:flex;justify-content:flex-end;margin-top:4px}
+.del{background:none;border:none;color:var(--navy);opacity:.45;font-family:var(--sans);font-size:11px;cursor:pointer;padding:10px}
+.del.zeker{opacity:1;color:#B4473B;font-weight:500}
+.nieuw{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;align-items:center}
+.nieuw input{font-family:var(--sans);font-size:14px;color:var(--navy);background:var(--wit);border:1px solid var(--beige);border-radius:8px;padding:9px 10px;min-height:48px}
+.nieuw .e{width:60px;text-align:center;font-size:20px;padding:5px}
+.soort{display:inline-flex;gap:6px}
+.soort .opt{width:auto;height:48px;padding:0 14px;font-family:var(--sans);font-size:12px}
+.dagen{display:flex;flex-direction:column;gap:4px}
+.dagrij{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--room);flex-wrap:wrap}
+.dagrij .lbl{width:96px;flex:none}
+.tegel{min-width:54px;height:54px;border-radius:14px;border:2px solid transparent;background:var(--room);font-size:30px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:0 8px;color:var(--navy)}
+.tegel[aria-pressed="true"]{background:var(--roze);border-color:var(--navy)}
+.prep span svg{width:20px;height:20px}
+svg.eigen{width:1.15em;height:1em;display:inline-block;vertical-align:top;overflow:visible}
+</style>
+</head>
+<body data-home="../">
+<div class="wrap">
+  <div class="balk">
+    <a class="knop" href="../">Terug</a>
+    <nav role="tablist">
+      <button role="tab" id="tab-mila" aria-selected="true" onclick="toon('mila')">Weekmenu</button>
+      <button role="tab" id="tab-beheer" aria-selected="false" onclick="toon('beheer')">Beheer</button>
+    </nav>
+    <span></span>
+  </div>
+
+  <div id="mila">
+    <header>
+      <h1>Mila's fruit</h1>
+      <div class="sub">van maandag tot vrijdag</div>
+    </header>
+    <div class="week" id="week"></div>
+  </div>
+
+  <div id="beheer" hidden>
+    <section class="blok">
+      <h2>Wat ligt er in de frigo?</h2>
+      <p class="uitleg">Tik op de <b>frigo</b> bij wat er deze week is. Kies met de smileys hoe graag ze het lust, en met de tekeningen hoe het klaargemaakt wordt. Groen = favoriet (twee keer per week), geel = gewoon, rood = lust ze niet (komt niet op het menu).</p>
+      <div class="items" id="items"></div>
+      <div class="nieuw" id="nieuw">
+        <input class="e" id="n-icoon" placeholder="🍉" aria-label="Icoon">
+        <input id="n-naam" placeholder="Nieuw fruit of groente" aria-label="Naam">
+        <span class="soort" id="n-soort" data-v="Fruit">
+          <button class="opt" type="button" aria-pressed="true" data-s="Fruit">Fruit</button>
+          <button class="opt" type="button" aria-pressed="false" data-s="Groente">Groente</button>
+        </span>
+        <button class="btn vol" onclick="nieuw()">Toevoegen</button>
+      </div>
+    </section>
+    <section class="blok">
+      <h2>Weekmenu aanpassen</h2>
+      <p class="uitleg">✨ = het voorstel. Tik op een ander fruit om die dag zelf te kiezen.</p>
+      <div class="dagen" id="dagen"></div>
+    </section>
+  </div>
+  <div class="msg" id="msg"></div>
+</div>
+
+<script src="../shared/config.js"></script>
+<script src="../shared/hub-db.js"></script>
+<script src="../shared/kiosk.js"></script>
+<script>
+const DAGEN=["Maandag","Dinsdag","Woensdag","Donderdag","Vrijdag"];
+const SNIJ=["heel","kleine stukjes","lange stukken","schijfjes","partjes"];
+const NAVY="#2C3E52";
+const I={
+  favoriet:`<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="#8CC79A" stroke="${NAVY}" stroke-width="2"/><circle cx="14" cy="16" r="2.2" fill="${NAVY}"/><circle cx="26" cy="16" r="2.2" fill="${NAVY}"/><path d="M12 23 Q20 31 28 23" fill="none" stroke="${NAVY}" stroke-width="2.4" stroke-linecap="round"/></svg>`,
+  gewoon:`<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="#F2D06B" stroke="${NAVY}" stroke-width="2"/><circle cx="14" cy="16" r="2.2" fill="${NAVY}"/><circle cx="26" cy="16" r="2.2" fill="${NAVY}"/><path d="M13 26 H27" fill="none" stroke="${NAVY}" stroke-width="2.4" stroke-linecap="round"/></svg>`,
+  "lust niet":`<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="#E8867C" stroke="${NAVY}" stroke-width="2"/><circle cx="14" cy="16" r="2.2" fill="${NAVY}"/><circle cx="26" cy="16" r="2.2" fill="${NAVY}"/><path d="M12 29 Q20 21 28 29" fill="none" stroke="${NAVY}" stroke-width="2.4" stroke-linecap="round"/></svg>`,
+  metschil:`<svg viewBox="0 0 40 40"><circle cx="20" cy="22" r="14" fill="#F6E7C8" stroke="#C9483B" stroke-width="5"/><path d="M20 8 Q21 4 24 3" fill="none" stroke="${NAVY}" stroke-width="2" stroke-linecap="round"/></svg>`,
+  geschild:`<svg viewBox="0 0 40 40"><circle cx="17" cy="22" r="12" fill="#F6E7C8" stroke="${NAVY}" stroke-width="1.6"/><path d="M29 10 q6 2 4 7 q-2 5 3 8" fill="none" stroke="#C9483B" stroke-width="4" stroke-linecap="round"/></svg>`,
+  heel:`<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" fill="${NAVY}"/></svg>`,
+  partjes:`<svg viewBox="0 0 40 40" fill="${NAVY}"><path d="M19 19 V4 A15 15 0 0 0 4 19 Z"/><path d="M21 19 H36 A15 15 0 0 0 21 4 Z"/><path d="M19 21 H4 A15 15 0 0 0 19 36 Z"/><path d="M21 21 V36 A15 15 0 0 0 36 21 Z"/></svg>`,
+  "kleine stukjes":`<svg viewBox="0 0 40 40" fill="${NAVY}">${[6,16,26].flatMap(x=>[6,16,26].map(y=>`<rect x="${x}" y="${y}" width="8" height="8" rx="1.5"/>`)).join("")}</svg>`,
+  "lange stukken":`<svg viewBox="0 0 40 40" fill="${NAVY}"><rect x="7" y="5" width="6" height="30" rx="3"/><rect x="17" y="5" width="6" height="30" rx="3"/><rect x="27" y="5" width="6" height="30" rx="3"/></svg>`,
+  schijfjes:`<svg viewBox="0 0 40 40" fill="none" stroke="${NAVY}" stroke-width="2.4"><circle cx="11" cy="20" r="8"/><circle cx="20" cy="20" r="8" fill="#FCFBF8"/><circle cx="29" cy="20" r="8" fill="#FCFBF8"/><circle cx="29" cy="20" r="2.5" fill="${NAVY}" stroke="none"/></svg>`,
+  vork:`<svg viewBox="0 0 40 40" fill="none" stroke="${NAVY}" stroke-width="2.6" stroke-linecap="round"><path d="M14 5 V14 M20 5 V14 M26 5 V14 M14 14 Q14 20 20 20 Q26 20 26 14 M20 20 V36"/></svg>`,
+  geenvork:`<svg viewBox="0 0 40 40" fill="none" stroke-linecap="round"><path d="M14 5 V14 M20 5 V14 M26 5 V14 M14 14 Q14 20 20 20 Q26 20 26 14 M20 20 V36" stroke="${NAVY}" stroke-width="2.6"/><path d="M6 34 L34 6" stroke="#C9483B" stroke-width="3.4"/></svg>`,
+  frigo:`<svg viewBox="0 0 40 40" fill="none" stroke="${NAVY}" stroke-width="2.2" stroke-linejoin="round"><rect x="9" y="3" width="22" height="34" rx="4" fill="#FCFBF8"/><path d="M9 15 H31 M13 8 V11 M13 19 V25"/></svg>`
+};
+/* Eigen icoontjes voor wat geen emoji heeft. Gebruik als icoon: "eigen:rozijnen". */
+const EIGEN={
+  rozijnen:`<svg class="eigen" viewBox="0 0 64 64" role="img" aria-label="rozijnen">
+    <g stroke="#3A2230" stroke-width="1.2">
+      <ellipse cx="22" cy="40" rx="11" ry="9" fill="#6B3E57" transform="rotate(-18 22 40)"/>
+      <ellipse cx="42" cy="42" rx="11" ry="9" fill="#5A3349" transform="rotate(14 42 42)"/>
+      <ellipse cx="32" cy="26" rx="11" ry="9" fill="#7A4864" transform="rotate(6 32 26)"/>
+      <ellipse cx="16" cy="22" rx="8" ry="7" fill="#5A3349" transform="rotate(-30 16 22)"/>
+      <ellipse cx="48" cy="24" rx="8" ry="7" fill="#6B3E57" transform="rotate(28 48 24)"/>
+    </g>
+    <g fill="none" stroke="#3A2230" stroke-width="1.3" stroke-linecap="round" opacity=".75">
+      <path d="M16 38 q4 3 9 1"/><path d="M20 44 q5 1 8 -2"/>
+      <path d="M37 40 q5 3 10 1"/><path d="M38 47 q4 1 7 -1"/>
+      <path d="M26 24 q5 3 11 1"/><path d="M28 30 q4 1 8 -1"/>
+      <path d="M12 22 q3 2 7 0"/><path d="M44 23 q3 2 7 0"/>
+    </g>
+    <g fill="#FCFBF8" opacity=".45"><ellipse cx="27" cy="22" rx="3" ry="1.6"/><ellipse cx="17" cy="36" rx="2.6" ry="1.4"/><ellipse cx="38" cy="38" rx="2.6" ry="1.4"/></g>
+  </svg>`
+};
+function ico(f){
+  const v=String(f?.icoon||"");
+  if(v.startsWith("eigen:") && EIGEN[v.slice(6)]) return EIGEN[v.slice(6)];
+  return esc(v)||"🍽️";
+}
+let fruit=[], keuze={}, db=null, magSchrijven=true, geladen=false;
+
+function msg(t){ document.getElementById("msg").textContent=t||""; }
+function esc(s){ return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function toon(v){
+  document.getElementById("mila").hidden = v!=="mila";
+  document.getElementById("beheer").hidden = v!=="beheer";
+  document.getElementById("tab-mila").setAttribute("aria-selected", v==="mila");
+  document.getElementById("tab-beheer").setAttribute("aria-selected", v==="beheer");
+}
+
+/* Voorstel: eerst de favorieten, daarna de rest afgewisseld met de tweede ronde favorieten. */
+function voorstel(){
+  const sorted=[...fruit].sort((a,b)=>(a.volgorde??0)-(b.volgorde??0));
+  const actief=sorted.filter(f=>f.frigo && f.lust!=="lust niet");
+  const fav=actief.filter(f=>f.lust==="favoriet"), rest=actief.filter(f=>f.lust!=="favoriet");
+  const reeks=[...fav];
+  const n=Math.max(rest.length,fav.length);
+  for(let i=0;i<n;i++){ if(rest[i]) reeks.push(rest[i]); if(fav[i]) reeks.push(fav[i]); }
+  if(!reeks.length) return DAGEN.map(()=>null);
+  return DAGEN.map((_,i)=>reeks[i%reeks.length]);
+}
+function menu(){
+  const v=voorstel();
+  return DAGEN.map((d,i)=>{ const k=keuze[d]; const f=k?fruit.find(x=>x.id===k):null; return f||v[i]; });
+}
+
+function renderMila(){
+  const w=document.getElementById("week"); w.innerHTML="";
+  if(!geladen){ w.innerHTML=`<div class="leeg" style="grid-column:1/-1">Even laden…</div>`; return; }
+  const m=menu();
+  if(m.every(x=>!x)){ w.innerHTML=`<div class="leeg" style="grid-column:1/-1">Nog niets in de frigo aangeduid. Ga naar Beheer.</div>`; return; }
+  const today=["Zondag",...DAGEN,"Zaterdag"][new Date().getDay()];
+  m.forEach((f,i)=>{
+    const d=DAGEN[i], c=document.createElement("div");
+    c.className="card"+(d===today?" vandaag":"");
+    if(!f){ c.innerHTML=`<div class="dag">${d}</div><div class="icoon">·</div><div class="naam">—</div>`; w.appendChild(c); return; }
+    c.innerHTML=`<div class="dag">${d}</div>
+      <div class="icoon" aria-hidden="true">${ico(f)}</div>
+      <div class="naam">${esc(f.naam)}</div>
+      <div class="prep"><div class="legend">Klaarmaken</div>
+        <span>${f.schil?I.geschild:I.metschil}${f.schil?"geschild":"met schil"}</span>
+        <span>${I[f.snij]||I.heel}${esc(f.snij)||"—"}</span>
+        <span>${f.vork?I.vork:I.geenvork}${f.vork?"met vorkje":"zonder vorkje"}</span>
+      </div>`;
+    w.appendChild(c);
+  });
+}
+
+let teVerwijderen=null;
+function opt(field,val,cur,svg,label,dis){
+  return `<button class="opt" type="button" data-k="${field}" data-v="${esc(JSON.stringify(val))}" aria-pressed="${cur===val}" aria-label="${label}" title="${label}" ${dis}>${svg}</button>`;
+}
+function renderBeheer(){
+  const box=document.getElementById("items");
+  const sorted=[...fruit].sort((a,b)=>(a.volgorde??0)-(b.volgorde??0));
+  const dis=magSchrijven?"":"disabled";
+  box.innerHTML=sorted.map(f=>`<div class="fk${f.frigo?"":" uit"}" data-id="${esc(f.id)}">
+    <div class="fk-top"><span class="fk-emoji" aria-hidden="true">${ico(f)}</span><span class="fk-naam">${esc(f.naam)}</span>
+      <button class="frigo" type="button" data-k="frigo" data-v="${!f.frigo}" aria-pressed="${!!f.frigo}" ${dis}>${I.frigo}${f.frigo?"in de frigo":"niet in de frigo"}</button></div>
+    <div class="fk-opties">
+      <div class="rij"><span class="lbl">Lust ik het?</span><span class="opts">${["favoriet","gewoon","lust niet"].map(v=>opt("lust",v,f.lust,I[v],v,dis)).join("")}</span></div>
+      <div class="rij"><span class="lbl">Schil</span><span class="opts">${opt("schil",true,!!f.schil,I.geschild,"geschild",dis)}${opt("schil",false,!!f.schil,I.metschil,"met schil",dis)}</span></div>
+      <div class="rij"><span class="lbl">Snijden</span><span class="opts">${SNIJ.map(v=>opt("snij",v,f.snij,I[v],v,dis)).join("")}</span></div>
+      <div class="rij"><span class="lbl">Vorkje</span><span class="opts">${opt("vork",true,!!f.vork,I.vork,"met vorkje",dis)}${opt("vork",false,!!f.vork,I.geenvork,"zonder vorkje",dis)}</span></div>
+    </div>
+    ${magSchrijven?`<div class="fk-voet"><button class="del${teVerwijderen===f.id?" zeker":""}" type="button" data-del>${teVerwijderen===f.id?"Tik nog eens om te verwijderen":"verwijderen"}</button></div>`:""}
+  </div>`).join("");
+  document.getElementById("nieuw").hidden=!magSchrijven;
+
+  const v=voorstel(), dg=document.getElementById("dagen");
+  const kies=sorted.filter(f=>f.frigo && f.lust!=="lust niet");
+  dg.innerHTML=DAGEN.map((d,i)=>{
+    const eigen=keuze[d] && fruit.some(x=>x.id===keuze[d]) ? keuze[d] : "";
+    return `<div class="dagrij"><span class="lbl">${d}</span>
+      <button class="tegel" type="button" data-dag="${d}" data-id="" aria-pressed="${!eigen}" aria-label="Voorstel" ${dis}>✨${v[i]?ico(v[i]):""}</button>
+      ${kies.map(f=>`<button class="tegel" type="button" data-dag="${d}" data-id="${esc(f.id)}" aria-pressed="${eigen===f.id}" aria-label="${esc(f.naam)}" title="${esc(f.naam)}" ${dis}>${ico(f)}</button>`).join("")}
+    </div>`;}).join("");
+}
+function render(){ renderMila(); renderBeheer(); }
+
+async function bewaar(f){
+  if(!db) return;
+  const {id,...body}=f;
+  try{ await db.collection("fruit").doc(id).set(body); msg(""); }
+  catch(e){ msg(e.code==="not_granted" ? "Opslaan lukte niet: de sleutel ontbreekt op dit scherm (zie Instellingen)." : "Opslaan lukte niet, probeer opnieuw."); }
+}
+document.getElementById("items").addEventListener("click",e=>{
+  const card=e.target.closest(".fk[data-id]"); if(!card) return;
+  const f=fruit.find(x=>x.id===card.dataset.id); if(!f) return;
+  if(e.target.closest("[data-del]")){
+    if(teVerwijderen!==f.id){ teVerwijderen=f.id; render(); return; }
+    teVerwijderen=null; fruit=fruit.filter(x=>x.id!==f.id); render();
+    db?.collection("fruit").doc(f.id).delete().catch(()=>msg("Verwijderen lukte niet."));
+    return;
+  }
+  const b=e.target.closest("[data-k]"); if(!b) return;
+  const k=b.dataset.k, val=JSON.parse(b.dataset.v);
+  if(f[k]===val) return;
+  teVerwijderen=null;
+  const n={...f,[k]:val}; fruit=fruit.map(x=>x.id===f.id?n:x); render(); bewaar(n);
+});
+document.getElementById("dagen").addEventListener("click",async e=>{
+  const b=e.target.closest("[data-dag]"); if(!b) return;
+  const d=b.dataset.dag; if((keuze[d]||"")===b.dataset.id) return;
+  keuze={...keuze,[d]:b.dataset.id}; render();
+  try{ await db?.doc("week/huidig").set({keuze}); }catch(err){ msg("Opslaan lukte niet."); }
+});
+document.getElementById("n-soort").addEventListener("click",e=>{
+  const b=e.target.closest("[data-s]"); if(!b) return;
+  const w=document.getElementById("n-soort"); w.dataset.v=b.dataset.s;
+  w.querySelectorAll("[data-s]").forEach(x=>x.setAttribute("aria-pressed",x===b));
+});
+function nieuw(){
+  const naam=document.getElementById("n-naam").value.trim(); if(!naam) return;
+  const id=naam.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")+"-"+Date.now().toString(36);
+  const f={id,naam,icoon:document.getElementById("n-icoon").value.trim()||(/rozijn/i.test(naam)?"eigen:rozijnen":"🍽️"),soort:document.getElementById("n-soort").dataset.v,
+    frigo:true,lust:"gewoon",schil:false,snij:"heel",vork:false,volgorde:Math.max(0,...fruit.map(x=>x.volgorde||0))+1};
+  fruit=[...fruit,f]; render(); bewaar(f);
+  document.getElementById("n-naam").value=""; document.getElementById("n-icoon").value="";
+}
+
+// Op het keukenscherm opent het altijd op het weekmenu.
+toon("mila"); render();
+
+(async()=>{
+  db = await claude.use("db");
+  if(!db){ geladen=true; render(); msg("De opslag is niet bereikbaar."); return; }
+  const timer=setTimeout(()=>msg("Het menu is nog niet bereikbaar; misschien is de wifi weg."),10000);
+  db.collection("fruit").onSnapshot(s=>{
+    fruit=s.docs.map(d=>({id:d.id,...d.data()}));
+    geladen=true; if(!s.metadata.fromCache){ clearTimeout(timer); msg(""); }
+    render();
+  },(e)=>{ clearTimeout(timer); geladen=true; render(); msg(e.code==="not_granted" ? "De sleutel ontbreekt op dit scherm. Vul hem in bij Instellingen." : "Het menu kon niet geladen worden."); });
+  db.doc("week/huidig").onSnapshot(s=>{ keuze=(s.exists&&s.data().keuze)||{}; render(); },()=>{});
+})();
+</script>
+</body>
+</html>

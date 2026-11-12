@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Gezinsagenda</title>
+<link rel="stylesheet" href="../shared/huisstijl.css">
+<style>
+  body { padding: var(--gutter); display: flex; flex-direction: column; height: 100vh; gap: 18px; }
+  input, select { -webkit-user-select: text; user-select: text; }
+
+  .balk { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .titel { flex: 1; min-width: 200px; }
+  .titel h1 { font-family: var(--serif); font-weight: normal; font-size: clamp(28px, 3vw, 40px); margin: 0; line-height: 1.1; }
+  .titel .label { margin-top: 4px; }
+  .nav { display: flex; gap: 8px; }
+  .rond { width: 48px; padding: 0; justify-content: center; font-size: 20px; }
+
+  .legende { display: flex; gap: 18px; flex-wrap: wrap; }
+  .legende span { display: inline-flex; align-items: center; gap: 8px; }
+  .legende i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+
+  .week { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 12px; }
+  .dag { background: var(--wit); border: 1px solid var(--lijn); border-radius: var(--radius); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .dag.vandaag { border: 2px solid var(--navy); }
+  .dag.voorbij { opacity: .55; }
+  .kop { padding: 14px 14px 10px; border-bottom: 1px solid var(--lijn); cursor: pointer; text-align: left; background: none; border-left: 0; border-right: 0; border-top: 0; color: inherit; font: inherit; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .kop:active { background: var(--room); }
+  .kop .nr { font-family: var(--sans); font-weight: 300; font-size: 34px; line-height: 1; }
+  .kop .plus { font-family: var(--sans); font-size: 22px; line-height: 1; opacity: .35; }
+  .feest { font-family: var(--sans); font-size: 11px; color: var(--zacht); margin-top: 6px; }
+  .lijst { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .leeg { font-family: var(--serif); font-size: 15px; color: var(--zacht); padding: 4px 4px; }
+
+  .item { display: block; width: 100%; text-align: left; border: 0; cursor: pointer; color: var(--navy); font: inherit;
+          background: var(--wit); border-radius: 10px; padding: 8px 10px 8px 14px; position: relative;
+          box-shadow: inset 0 0 0 1px var(--lijn); }
+  .item::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; border-radius: 10px 0 0 10px; background: var(--k); }
+  .item.heel { background: var(--kz); box-shadow: none; }
+  .item .uur { font-family: var(--sans); font-size: 12px; font-weight: 500; letter-spacing: .04em; color: var(--zacht); }
+  .item .tt { font-family: var(--serif); font-size: 17px; line-height: 1.25; overflow-wrap: anywhere; }
+
+  .melding { font-family: var(--sans); font-size: 13px; text-align: center; min-height: 18px; color: var(--zacht); }
+
+  dialog { border: 0; border-radius: var(--radius); padding: 28px; background: var(--wit); color: var(--navy); width: min(560px, 92vw); }
+  dialog::backdrop { background: rgba(44, 62, 82, .35); }
+  dialog h2 { font-family: var(--serif); font-weight: normal; font-size: 30px; margin: 0 0 18px; }
+  .veld { margin-bottom: 16px; }
+  .veld .label { display: block; margin-bottom: 8px; }
+  .veld input { font-family: var(--sans); font-size: 16px; color: var(--navy); width: 100%; min-height: 50px; padding: 0 14px; border: 1px solid var(--beige); border-radius: 12px; background: var(--wit); }
+  .wie { display: flex; gap: 8px; flex-wrap: wrap; }
+  .wie button { display: inline-flex; align-items: center; gap: 8px; }
+  .wie button i { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+  .wie button[aria-pressed="true"] { border: 2px solid var(--navy); }
+  .uren { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .acties { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+  .detail p { font-family: var(--serif); font-size: 19px; margin: 0 0 10px; }
+
+  @media (max-width: 900px) {
+    body { height: auto; }
+    .week { grid-template-columns: 1fr; }
+    .lijst { overflow: visible; }
+  }
+</style>
+</head>
+<body data-home="../" data-terug="10">
+  <div class="balk">
+    <a class="knop" href="../">Terug</a>
+    <div class="titel">
+      <h1>Gezinsagenda</h1>
+      <div class="label" id="weeklabel"></div>
+    </div>
+    <div class="nav">
+      <button class="knop rond" id="vorige" aria-label="Vorige week">‹</button>
+      <button class="knop" id="nu">Vandaag</button>
+      <button class="knop rond" id="volgende" aria-label="Volgende week">›</button>
+    </div>
+    <button class="knop vol" id="nieuw">+ Afspraak</button>
+  </div>
+
+  <div class="legende label" id="legende"></div>
+  <main class="week" id="week"></main>
+  <div class="melding" id="melding"></div>
+
+  <dialog id="dlgNieuw">
+    <form method="dialog" id="formNieuw">
+      <h2>Nieuwe afspraak</h2>
+      <div class="veld"><span class="label">Voor wie</span><div class="wie" id="wie"></div></div>
+      <div class="veld"><label class="label" for="fTitel">Wat</label><input id="fTitel" autocomplete="off" maxlength="200" required></div>
+      <div class="veld"><label class="label" for="fDatum">Wanneer</label><input id="fDatum" type="date" required></div>
+      <div class="veld">
+        <div class="wie">
+          <button type="button" class="knop" id="fHeel" aria-pressed="false">Hele dag</button>
+        </div>
+      </div>
+      <div class="veld uren" id="fUren">
+        <div><label class="label" for="fVan">Van</label><input id="fVan" type="time" value="09:00"></div>
+        <div><label class="label" for="fTot">Tot</label><input id="fTot" type="time" value="10:00"></div>
+      </div>
+      <div class="veld"><label class="label" for="fWaar">Waar (mag leeg)</label><input id="fWaar" autocomplete="off" maxlength="200"></div>
+      <div class="melding" id="fMelding"></div>
+      <div class="acties">
+        <button type="button" class="knop" id="fAnnuleer">Annuleren</button>
+        <button type="submit" class="knop vol" id="fBewaar">Opslaan</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlgDetail">
+    <div class="detail">
+      <div class="label" id="dWie"></div>
+      <h2 id="dTitel"></h2>
+      <p id="dWanneer"></p>
+      <p id="dWaar"></p>
+      <div class="acties"><button class="knop vol" id="dSluit">Sluiten</button></div>
+    </div>
+  </dialog>
+
+<script src="../shared/config.js"></script>
+<script src="../shared/hub-db.js"></script>
+<script src="../shared/kiosk.js"></script>
+<script>
+  // Kleuren uit de familie-huisstijl.
+  const MENSEN = {
+    feline: { naam: 'Féline', kleur: '#B29B89' },
+    aaron:  { naam: 'Aaron',  kleur: '#2B5374' },
+    mila:   { naam: 'Mila',   kleur: '#FFD5DC' },
+    finn:   { naam: 'Finn',   kleur: '#C7E6FD' },
+    gezin:  { naam: 'Gezin',  kleur: '#8F9EAA' },
+  };
+  const CATEGORIE = { '6': '#D98B3F', '5': '#D9B23F' }; // mandarijn = verjaardag, banaan = events & feesten
+  const DAGNAMEN = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'];
+
+  const $ = (id) => document.getElementById(id);
+  const pad = (n) => String(n).padStart(2, '0');
+  const iso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const plusDagen = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  function maandagVan(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
+  function tint(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; }
+
+  let maandag = maandagVan(new Date());
+  let events = [];
+  let laadNr = 0;
+
+  // Legende
+  $('legende').innerHTML = Object.values(MENSEN).map((m) => `<span><i style="background:${m.kleur}"></i>${m.naam}</span>`).join('') +
+    `<span><i style="background:${CATEGORIE['6']}"></i>Verjaardag</span><span><i style="background:${CATEGORIE['5']}"></i>Events &amp; feesten</span>`;
+
+  function kleurVan(ev) { return CATEGORIE[ev.kleur] || (MENSEN[ev.kal] || MENSEN.gezin).kleur; }
+
+  function cacheSleutel() { return 'hub.agenda.' + iso(maandag); }
+
+  async function laad() {
+    const nr = ++laadNr;
+    const van = iso(maandag), tot = iso(plusDagen(maandag, 7));
+    try {
+      const c = JSON.parse(localStorage.getItem(cacheSleutel()) || 'null');
+      if (c) { events = c; teken(); }
+    } catch (e) { /* geen cache */ }
+    try {
+      const res = await hubDb.rpc('agenda', { van, tot });
+      if (nr !== laadNr) return; // ondertussen naar een andere week gegaan
+      events = res.events || [];
+      try { localStorage.setItem(cacheSleutel(), JSON.stringify(events)); } catch (e) {}
+      $('melding').textContent = '';
+      teken();
+    } catch (e) {
+      if (nr !== laadNr) return;
+      $('melding').textContent = e.code === 'not_granted'
+        ? 'De sleutel ontbreekt op dit scherm. Vul hem in bij Instellingen.'
+        : 'De agenda is nu niet bereikbaar. Wat je ziet, kan verouderd zijn.';
+      teken();
+    }
+  }
+
+  function opDag(ev, dag) {
+    if (ev.heleDag) return ev.start <= dag && dag < ev.einde;
+    return ev.start.slice(0, 10) === dag;
+  }
+
+  function teken() {
+    const vandaag = iso(new Date());
+    const zondag = plusDagen(maandag, 6);
+    const fmt = (d, o) => d.toLocaleDateString('nl-BE', o);
+    $('weeklabel').textContent = maandag.getMonth() === zondag.getMonth()
+      ? `${maandag.getDate()} – ${fmt(zondag, { day: 'numeric', month: 'long' })}`
+      : `${fmt(maandag, { day: 'numeric', month: 'long' })} – ${fmt(zondag, { day: 'numeric', month: 'long' })}`;
+
+    const w = $('week'); w.innerHTML = '';
+    for (let i = 0; i < 7; i++) {
+      const d = plusDagen(maandag, i), dag = iso(d);
+      const vanDag = events.filter((ev) => opDag(ev, dag));
+      const feest = vanDag.filter((ev) => ev.kal === 'feestdagen').map((ev) => ev.titel);
+      const items = vanDag.filter((ev) => ev.kal !== 'feestdagen').sort((a, b) =>
+        (b.heleDag - a.heleDag) || (a.heleDag ? 0 : a.start.localeCompare(b.start)) || a.titel.localeCompare(b.titel));
+
+      const kol = document.createElement('section');
+      kol.className = 'dag' + (dag === vandaag ? ' vandaag' : '') + (dag < vandaag ? ' voorbij' : '');
+      kol.innerHTML = `<button class="kop" type="button" aria-label="Afspraak toevoegen op ${DAGNAMEN[i]}">
+          <div><div class="label">${DAGNAMEN[i]}${dag === vandaag ? ' · vandaag' : ''}</div><div class="nr">${d.getDate()}</div>
+          ${feest.length ? `<div class="feest"></div>` : ''}</div><span class="plus">+</span></button>
+        <div class="lijst"></div>`;
+      if (feest.length) kol.querySelector('.feest').textContent = feest.join(' · ');
+      kol.querySelector('.kop').onclick = () => openNieuw(dag);
+      const lijst = kol.querySelector('.lijst');
+      if (!items.length) lijst.innerHTML = '<div class="leeg">—</div>';
+      items.forEach((ev) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'item' + (ev.heleDag ? ' heel' : '');
+        const k = kleurVan(ev);
+        b.style.setProperty('--k', k);
+        b.style.setProperty('--kz', tint(k, 0.28));
+        b.innerHTML = (ev.heleDag ? '' : '<div class="uur"></div>') + '<div class="tt"></div>';
+        if (!ev.heleDag) b.querySelector('.uur').textContent = ev.start.slice(11) + ' – ' + ev.einde.slice(11);
+        b.querySelector('.tt').textContent = ev.titel || '(zonder titel)';
+        b.onclick = () => toonDetail(ev);
+        lijst.appendChild(b);
+      });
+      w.appendChild(kol);
+    }
+  }
+
+  // Detail
+  function toonDetail(ev) {
+    $('dWie').textContent = (MENSEN[ev.kal] || { naam: '' }).naam;
+    $('dTitel').textContent = ev.titel || '(zonder titel)';
+    const d = new Date(ev.start.slice(0, 10) + 'T12:00');
+    let wanneer = d.toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' });
+    if (ev.heleDag) {
+      const laatste = plusDagen(new Date(ev.einde + 'T12:00'), -1);
+      if (iso(laatste) !== ev.start) wanneer += ' tot ' + laatste.toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' });
+      else wanneer += ', hele dag';
+    } else {
+      wanneer += ', ' + ev.start.slice(11) + ' – ' + ev.einde.slice(11);
+    }
+    $('dWanneer').textContent = wanneer;
+    $('dWaar').textContent = ev.locatie || '';
+    $('dlgDetail').showModal();
+  }
+  $('dSluit').onclick = () => $('dlgDetail').close();
+
+  // Nieuwe afspraak
+  let wie = 'gezin', heleDag = false;
+  $('wie').innerHTML = Object.entries(MENSEN).map(([k, m]) =>
+    `<button type="button" class="knop" data-wie="${k}" aria-pressed="false"><i style="background:${m.kleur}"></i>${m.naam}</button>`).join('');
+  $('wie').onclick = (e) => {
+    const b = e.target.closest('[data-wie]'); if (!b) return;
+    wie = b.dataset.wie;
+    $('wie').querySelectorAll('[data-wie]').forEach((x) => x.setAttribute('aria-pressed', x === b));
+  };
+  $('fHeel').onclick = () => {
+    heleDag = !heleDag;
+    $('fHeel').setAttribute('aria-pressed', heleDag);
+    $('fUren').hidden = heleDag;
+  };
+  function openNieuw(dag) {
+    $('formNieuw').reset();
+    $('fDatum').value = dag || (iso(new Date()) >= iso(maandag) && iso(new Date()) < iso(plusDagen(maandag, 7)) ? iso(new Date()) : iso(maandag));
+    $('fVan').value = '09:00'; $('fTot').value = '10:00';
+    heleDag = false; $('fHeel').setAttribute('aria-pressed', 'false'); $('fUren').hidden = false;
+    wie = 'gezin';
+    $('wie').querySelectorAll('[data-wie]').forEach((x) => x.setAttribute('aria-pressed', x.dataset.wie === wie));
+    $('fMelding').textContent = '';
+    $('fBewaar').disabled = false;
+    $('dlgNieuw').showModal();
+    $('fTitel').focus();
+  }
+  $('nieuw').onclick = () => openNieuw();
+  $('fAnnuleer').onclick = () => $('dlgNieuw').close();
+  $('formNieuw').onsubmit = async (e) => {
+    e.preventDefault();
+    const titel = $('fTitel').value.trim();
+    if (!titel) { $('fMelding').textContent = 'Geef de afspraak een naam.'; return; }
+    $('fBewaar').disabled = true;
+    $('fMelding').textContent = 'Opslaan…';
+    try {
+      await hubDb.rpc('afspraak', {
+        kal: wie, titel, datum: $('fDatum').value, heleDag,
+        van: $('fVan').value, tot: $('fTot').value, locatie: $('fWaar').value.trim(),
+      });
+      $('dlgNieuw').close();
+      maandag = maandagVan(new Date($('fDatum').value + 'T12:00'));
+      laad();
+    } catch (err) {
+      $('fBewaar').disabled = false;
+      $('fMelding').textContent = err.code === 'not_granted'
+        ? 'De sleutel ontbreekt op dit scherm.'
+        : 'Opslaan lukte niet: ' + (err.message || 'probeer opnieuw');
+    }
+  };
+
+  // Week wisselen
+  $('vorige').onclick = () => { maandag = plusDagen(maandag, -7); events = []; teken(); laad(); };
+  $('volgende').onclick = () => { maandag = plusDagen(maandag, 7); events = []; teken(); laad(); };
+  $('nu').onclick = () => { maandag = maandagVan(new Date()); laad(); };
+
+  teken();
+  laad();
+  // Elke 5 minuten vernieuwen; om middernacht schuift "vandaag" mee.
+  setInterval(() => {
+    if (document.querySelector('dialog[open]')) return;
+    const nuMaandag = maandagVan(new Date());
+    if (iso(new Date()) === iso(nuMaandag) && new Date().getHours() === 0) maandag = nuMaandag;
+    laad();
+  }, 5 * 60000);
+</script>
+</body>
+</html>

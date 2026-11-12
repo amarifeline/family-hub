@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Instellingen</title>
+<link rel="stylesheet" href="../shared/huisstijl.css">
+<style>
+  body { padding: var(--gutter); max-width: 760px; margin: 0 auto; }
+  .kop { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 28px; }
+  h1 { font-family: var(--serif); font-weight: normal; font-size: 36px; margin: 0; }
+  section { background: var(--wit); border: 1px solid var(--lijn); border-radius: var(--radius); padding: 24px; margin-bottom: 18px; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 12px 20px; margin: 0; }
+  dt { font-family: var(--sans); font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--zacht); align-self: center; }
+  dd { margin: 0; font-family: var(--sans); font-size: 15px; word-break: break-all; }
+  .rij { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  input {
+    font-family: var(--sans); font-size: 15px; color: var(--navy);
+    flex: 1; min-width: 200px; min-height: 48px; padding: 0 16px;
+    border: 1px solid var(--beige); border-radius: 12px; background: var(--wit);
+    -webkit-user-select: text; user-select: text;
+  }
+  #log { font-family: var(--sans); font-size: 14px; margin: 16px 0 0; padding: 0; list-style: none; }
+  #log li { padding: 6px 0; border-top: 1px solid var(--lijn); }
+  @media (max-width: 520px) { dl { grid-template-columns: 1fr; gap: 4px; } dd { margin-bottom: 10px; } }
+</style>
+</head>
+<body data-home="../" data-terug="10">
+  <div class="kop">
+    <h1>Instellingen</h1>
+    <a class="knop" href="../">Terug</a>
+  </div>
+
+  <section>
+    <div class="label" style="margin-bottom:16px">Verbinding</div>
+    <dl>
+      <dt>Modus</dt><dd id="modus"></dd>
+      <dt>Server</dt><dd id="server"></dd>
+      <dt>Sleutel</dt><dd id="sleutel"></dd>
+      <dt>Status</dt><dd><span class="status" id="status"><i></i><span></span></span></dd>
+    </dl>
+    <div class="rij">
+      <input id="nieuweSleutel" type="password" placeholder="Sleutel plakken" autocomplete="off">
+      <button class="knop" id="bewaar">Bewaren</button>
+    </div>
+  </section>
+
+  <section>
+    <div class="label">Opslag testen</div>
+    <div class="rij">
+      <button class="knop vol" id="test">Test schrijven en lezen</button>
+      <button class="knop" id="wis" hidden>Proefgegevens wissen</button>
+    </div>
+    <ul id="log"></ul>
+  </section>
+
+<script src="../shared/config.js"></script>
+<script src="../shared/hub-db.js"></script>
+<script src="../shared/kiosk.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const proef = hubDb.mode === 'proef';
+  $('modus').textContent = proef ? 'Proefmodus (alles blijft in deze browser)' : 'Google Sheet';
+  $('server').textContent = (window.HUB_CONFIG && HUB_CONFIG.endpoint) || '—';
+  $('sleutel').textContent = proef ? 'niet nodig' : (hubDb.hasKey() ? 'ingesteld' : 'ontbreekt');
+  $('wis').hidden = !proef;
+
+  const STATUS = { ok: 'Verbonden', laden: 'Verbinden…', offline: 'Geen verbinding', sleutel: 'Sleutel klopt niet', proef: 'Proefmodus' };
+  hubDb.onStatus((s) => { $('status').dataset.s = s; $('status').querySelector('span').textContent = STATUS[s] || s; });
+  hubDb.ping().catch(() => {});
+
+  $('bewaar').onclick = () => {
+    const k = $('nieuweSleutel').value.trim();
+    if (!k) return;
+    try { localStorage.setItem('hub.key', k); } catch (e) {}
+    location.reload();
+  };
+
+  function log(t) { const li = document.createElement('li'); li.textContent = t; $('log').prepend(li); }
+
+  $('test').onclick = async () => {
+    const db = await claude.use('db');
+    const ref = db.doc('test/ping');
+    const t0 = performance.now();
+    try {
+      const stempel = new Date().toISOString();
+      await ref.set({ stempel });
+      const snap = await ref.get();
+      const ok = snap.exists && snap.data().stempel === stempel;
+      await ref.delete();
+      log((ok ? 'Gelukt' : 'Mislukt: gelezen waarde klopt niet') + ' — ' + Math.round(performance.now() - t0) + ' ms');
+    } catch (e) {
+      log('Mislukt: ' + (e.message || e.code || e));
+    }
+  };
+
+  $('wis').onclick = () => {
+    try { localStorage.removeItem('hub.proef'); localStorage.removeItem('hub.cache.proef'); } catch (e) {}
+    log('Proefgegevens gewist');
+  };
+</script>
+</body>
+</html>

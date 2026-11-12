@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Thuis</title>
+<link rel="stylesheet" href="shared/huisstijl.css">
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding: var(--gutter);
+    gap: clamp(20px, 4vh, 48px);
+  }
+  header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    border-bottom: 1px solid var(--beige);
+    padding-bottom: clamp(12px, 2vh, 24px);
+  }
+  .naam {
+    font-family: var(--script);
+    font-size: clamp(56px, 8vw, 104px);
+    line-height: 0.9;
+    font-weight: normal;
+    margin: 0;
+  }
+  .klok { text-align: right; }
+  .tijd {
+    font-family: var(--sans);
+    font-weight: 300;
+    font-size: clamp(40px, 6vw, 76px);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .datum { margin-top: 8px; }
+
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+    grid-auto-rows: clamp(180px, 30vh, 300px);
+    gap: clamp(14px, 2vw, 24px);
+    align-content: start;
+  }
+  .tegel {
+    position: relative;
+    background: var(--wit);
+    border: 1px solid var(--lijn);
+    border-radius: var(--radius);
+    padding: clamp(20px, 2.4vw, 32px);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    color: inherit;
+    text-decoration: none;
+    overflow: hidden;
+    min-height: 180px;
+  }
+  .tegel::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 8px;
+    background: var(--kleur, var(--beige));
+  }
+  a.tegel:active { background: var(--room); }
+  .tegel svg { width: 44px; height: 44px; stroke: var(--navy); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  .tegel h2 { font-family: var(--serif); font-weight: normal; font-size: clamp(26px, 2.6vw, 34px); margin: 0 0 6px; }
+  .tegel.later { opacity: 0.5; }
+
+  footer { display: flex; justify-content: space-between; align-items: center; }
+  footer a { color: inherit; text-decoration: none; padding: 12px 0; }
+
+  @media (max-width: 560px) {
+    header { flex-direction: column; align-items: flex-start; }
+    .klok { text-align: left; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1 class="naam">Thuis</h1>
+    <div class="klok">
+      <div class="tijd" id="tijd">--:--</div>
+      <div class="datum label" id="datum"></div>
+    </div>
+  </header>
+
+  <main id="tegels"></main>
+
+  <footer>
+    <span class="status label" id="status"><i></i><span></span></span>
+    <a class="label" href="instellingen/">Instellingen</a>
+  </footer>
+
+<script src="shared/config.js"></script>
+<script src="shared/hub-db.js"></script>
+<script src="shared/kiosk.js"></script>
+<script>
+  // De apps op het startscherm. Een nieuwe app = één regel erbij.
+  const APPS = [
+    { titel: 'Fruitmenu', wie: 'Mila', kleur: 'var(--mila)', href: 'fruit/', icoon: 'appel' },
+    { titel: 'Kleding', wie: 'Binnenkort', kleur: 'var(--beige)', icoon: 'hanger' },
+    { titel: 'Gezinsagenda', wie: 'Iedereen', kleur: '#8F9EAA', href: 'agenda/', icoon: 'agenda' },
+  ];
+
+  const ICONEN = {
+    appel: '<path d="M12 7c-2-1.6-6-1.2-6.5 3-.4 3.4 1.6 9 4.5 9 1 0 1.3-.6 2-.6s1 .6 2 .6c2.9 0 4.9-5.6 4.5-9-.5-4.2-4.5-4.6-6.5-3Z"/><path d="M12 7c0-2 1-3.5 3-4"/>',
+    hanger: '<path d="M12 7a2 2 0 1 1 2-2"/><path d="M12 7v2L3 16a1.5 1.5 0 0 0 1 2.6h16a1.5 1.5 0 0 0 1-2.6l-9-7"/>',
+    agenda: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  };
+
+  const wrap = document.getElementById('tegels');
+  APPS.forEach((a) => {
+    const el = document.createElement(a.href ? 'a' : 'div');
+    el.className = 'tegel' + (a.href ? '' : ' later');
+    if (a.href) el.href = a.href;
+    el.style.setProperty('--kleur', a.kleur);
+    el.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICONEN[a.icoon] + '</svg>' +
+      '<div><h2></h2><div class="label"></div></div>';
+    el.querySelector('h2').textContent = a.titel;
+    el.querySelector('.label').textContent = a.wie;
+    wrap.appendChild(el);
+  });
+
+  // Klok
+  const tijd = document.getElementById('tijd');
+  const datum = document.getElementById('datum');
+  function klok() {
+    const nu = new Date();
+    tijd.textContent = nu.toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' });
+    datum.textContent = nu.toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+  klok();
+  setInterval(klok, 10000);
+
+  // Verbinding
+  const STATUS = { ok: 'Verbonden', laden: 'Verbinden…', offline: 'Geen verbinding', sleutel: 'Sleutel klopt niet', proef: 'Proefmodus' };
+  const st = document.getElementById('status');
+  hubDb.onStatus((s) => { st.dataset.s = s; st.querySelector('span').textContent = STATUS[s] || s; });
+  hubDb.ping().catch(() => {});
+  setInterval(() => hubDb.ping().catch(() => {}), 60000);
+
+  // 's Morgens een verse pagina (nieuwe versies van de hub worden zo vanzelf opgehaald).
+  setInterval(() => { const n = new Date(); if (n.getHours() === 4 && n.getMinutes() === 0) location.reload(); }, 60000);
+</script>
+</body>
+</html>
