@@ -145,7 +145,7 @@
 
   // Legende
   $('legende').innerHTML = Object.values(MENSEN).map((m) => `<span><i style="background:${m.kleur}"></i>${m.naam}</span>`).join('') +
-    `<span><i style="background:${CATEGORIE['6']}"></i>Verjaardag</span><span><i style="background:${CATEGORIE['5']}"></i>Events &amp; feesten</span>`;
+    `<span><i style="background:${CATEGORIE['6']}"></i>Verjaardag</span><span><i style="background:${CATEGORIE['5']}"></i>Events &amp; feesten</span><span><i style="background:#4F86A8"></i>Taken</span>`;
 
   // Zelfde regels als de weekkaarten. Let op: in Féline's eigen agenda komt haar blauwe taakkleur door als colorId 5
   // (elders is 5 banaan = events & feesten).
@@ -157,8 +157,9 @@
     if (ev.kleur === '7' || /^to ?do/i.test(t)) return 'taak';
     return 'afspraak';
   }
-  const SOORTKLEUR = { verjaardag: CATEGORIE['6'], feest: CATEGORIE['5'] };
-  const SOORTLABEL = { taak: 'Taak', vrij: 'Vrij' };
+  const TAAKKLEUR = '#4F86A8'; // rustig blauw (pauw) voor taken
+  const SOORTKLEUR = { verjaardag: CATEGORIE['6'], feest: CATEGORIE['5'], taak: TAAKKLEUR };
+  const SOORTLABEL = { vrij: 'Vrij' };
   function kleurVan(ev) { return SOORTKLEUR[soortVan(ev)] || (MENSEN[ev.kal] || MENSEN.gezin).kleur; }
 
   function cacheSleutel() { return 'hub.agenda.' + iso(maandag); }
