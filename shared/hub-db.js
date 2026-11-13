@@ -117,6 +117,14 @@
           s.docs[p] = merge(s.docs[p], req.data); break;
         case 'delete': delete s.docs[p]; break;
         case 'agenda': return { events: [] }; // proefmodus heeft geen Google Agenda
+        case 'foto': {
+          const id = 'proef' + Date.now() + Math.floor(Math.random() * 1e4);
+          s.fotos = s.fotos || {}; s.fotos[id] = req.data; local.save(s); return { id };
+        }
+        case 'fotos': {
+          const out = {}; (req.ids || []).forEach((id) => { if (s.fotos && s.fotos[id]) out[id] = s.fotos[id]; }); return { fotos: out };
+        }
+        case 'fotoWeg': if (s.fotos) { delete s.fotos[req.id]; local.save(s); } return true;
         default: throw dbError('invalid_argument', 'Onbekende opdracht');
       }
       s.revs[tabOf(p)] = (s.revs[tabOf(p)] || 0) + 1;
@@ -440,7 +448,7 @@
     hasKey: () => !!store.get('hub.key'),
     ping: () => call({ op: 'revs' }, false),
     // Eigen opdrachten van de server, bv. de gezinsagenda: hubDb.rpc('agenda', {van, tot}).
-    rpc: (op, args) => call(Object.assign({}, args, { op }), op === 'agenda'),
+    rpc: (op, args) => call(Object.assign({}, args, { op }), op === 'agenda' || op === 'fotos'),
   });
 
   // Zelfde ingang als in Claude-artefacts, zodat hun code hier zo goed als ongewijzigd draait.

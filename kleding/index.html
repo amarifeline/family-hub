@@ -1,0 +1,726 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Kleding</title>
+<link rel="stylesheet" href="../shared/huisstijl.css">
+<style>
+/* Outfit planner, overgezet naar de hub. Familie-huisstijl: room, wit, navy, beige. */
+:root{
+  --navy-soft:#5B6878; --line:#E1CFB9; --line-soft:#E9E1D3;
+  --mila:#FFD5DC; --finn:#C7E6FD; --kid-other:#E1CFB9;
+  --r-sm:10px; --r-md:16px; --r-lg:22px;
+}
+*{box-sizing:border-box;}
+[hidden]{display:none!important;}
+body{font-family:var(--sans);font-weight:400;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;
+  padding-bottom:calc(84px + env(safe-area-inset-bottom,0px));}
+input,select{-webkit-user-select:text;user-select:text;}
+button,input,select{font-family:var(--sans);color:var(--navy);}
+button{cursor:pointer;}
+:focus-visible{outline:2px solid var(--navy);outline-offset:2px;}
+.page{max-width:620px;margin:0 auto;padding-block:20px 8px;
+  padding-left:max(16px, env(safe-area-inset-left,0px));padding-right:max(16px, env(safe-area-inset-right,0px));}
+.label{font-size:10.5px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--navy-soft);}
+h2{font-family:var(--serif);font-weight:400;font-size:24px;line-height:1.2;margin:0;text-wrap:balance;}
+.head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:26px 0 12px;}
+
+.top{display:flex;gap:10px;align-items:stretch;}
+.top .knop{align-self:center;flex:none;}
+
+/* kid switcher */
+.kids{display:flex;gap:10px;flex:1;min-width:0;}
+.kid{flex:1;min-width:0;border:1px solid var(--line);background:var(--wit);border-radius:var(--r-lg);padding:10px 14px 8px;text-align:left;display:flex;flex-direction:column;gap:0;transition:background .2s;}
+.kid .who{font-family:var(--script);font-size:34px;line-height:1.1;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.kid .meta{font-size:11px;color:var(--navy-soft);}
+.kid[aria-pressed="true"]{background:var(--kc);border-color:var(--kc);}
+.kid.add{flex:0 0 56px;align-items:center;justify-content:center;font-size:22px;font-weight:300;color:var(--navy-soft);border-style:dashed;}
+
+/* buttons */
+.btn{border:1px solid var(--navy);background:var(--navy);color:var(--wit);border-radius:999px;padding:11px 18px;font-size:13px;font-weight:500;letter-spacing:.01em;min-height:44px;}
+.btn.ghost{background:transparent;color:var(--navy);}
+.btn.quiet{border-color:var(--line);background:var(--wit);color:var(--navy);}
+.btn.danger{border-color:var(--line);background:transparent;color:#8A3B32;}
+.btn.sm{padding:7px 13px;font-size:12px;min-height:38px;}
+.btn:disabled{opacity:.45;cursor:default;}
+.link{border:none;background:none;padding:6px 0;font-size:12px;color:var(--navy-soft);text-decoration:underline;text-underline-offset:3px;}
+
+/* weather */
+.weather{background:var(--wit);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 18px 16px;display:grid;grid-template-columns:auto 1fr;gap:4px 16px;align-items:center;}
+.weather .icon{grid-row:span 2;width:44px;height:44px;color:var(--navy);}
+.weather .temp{font-family:var(--serif);font-size:40px;line-height:1;}
+.weather .temp small{font-size:18px;color:var(--navy-soft);margin-left:6px;}
+.weather .desc{font-size:12.5px;color:var(--navy-soft);}
+.weather .foot{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft);font-size:11.5px;color:var(--navy-soft);}
+.manual{grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;}
+.manual input[type=number]{width:84px;padding:9px 10px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--room);font-size:14px;}
+.manual label{display:flex;align-items:center;gap:6px;font-size:12.5px;}
+
+/* outfit grid */
+.outfit{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.piece{background:var(--wit);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;display:flex;flex-direction:column;}
+.piece img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;background:var(--room);}
+.piece .cap{padding:8px 12px 10px;display:flex;flex-direction:column;gap:1px;}
+.piece .cap span:last-child{font-size:12px;color:var(--navy-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.piece.missing{justify-content:center;align-items:center;min-height:120px;border-style:dashed;background:transparent;text-align:center;padding:12px;font-size:12px;color:var(--navy-soft);}
+
+.empty{border:1px dashed var(--line);border-radius:var(--r-md);padding:26px 18px;text-align:center;color:var(--navy-soft);font-size:13px;display:flex;flex-direction:column;gap:12px;align-items:center;}
+.empty strong{font-family:var(--serif);font-weight:400;font-size:19px;color:var(--navy);}
+
+/* week */
+.days{display:flex;flex-direction:column;gap:10px;}
+.day{background:var(--wit);border:1px solid var(--line);border-radius:var(--r-md);padding:14px 14px 12px;}
+.day.today{border-color:var(--navy);}
+.day-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
+.day-name{font-family:var(--serif);font-size:19px;}
+.day-wx{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--navy-soft);font-variant-numeric:tabular-nums;}
+.day-wx svg{width:18px;height:18px;}
+.krow{margin-top:12px;padding-top:12px;border-top:1px solid var(--line-soft);display:flex;flex-direction:column;gap:8px;}
+.krow-top{display:flex;align-items:center;gap:8px;}
+.kdot{width:10px;height:10px;border-radius:50%;background:var(--kc);flex-shrink:0;}
+.kname{font-size:13px;font-weight:500;}
+.occ{margin-left:auto;font-size:12px;padding:8px 10px;border:1px solid var(--line);border-radius:999px;background:var(--wit);}
+.thumbs{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.thumb{width:54px;height:54px;border-radius:var(--r-sm);object-fit:cover;border:1px solid var(--line-soft);background:var(--room);cursor:pointer;}
+.thumbs .tools{margin-left:auto;display:flex;gap:6px;}
+.tool{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--wit);display:grid;place-items:center;color:var(--navy);}
+.tool svg{width:18px;height:18px;}
+.none{font-size:12px;color:var(--navy-soft);}
+
+/* closet */
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin:0 -2px 12px;scrollbar-width:none;}
+.chips::-webkit-scrollbar{display:none;}
+.chip{flex-shrink:0;border:1px solid var(--line);background:var(--wit);border-radius:999px;padding:9px 14px;font-size:12px;}
+.chip[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:var(--wit);}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+.tile{border:none;padding:0;background:var(--wit);border-radius:var(--r-sm);overflow:hidden;position:relative;text-align:left;}
+.tile img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;background:var(--room);}
+.tile .tcap{position:absolute;left:6px;bottom:6px;background:rgba(252,251,248,.92);border-radius:999px;padding:2px 8px;font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--navy);}
+.seg{display:flex;background:var(--wit);border:1px solid var(--line);border-radius:999px;padding:3px;margin-bottom:10px;}
+.segb{flex:1 1 auto;border:none;background:none;border-radius:999px;padding:10px 8px;font-size:12px;white-space:nowrap;}
+.segb span{color:var(--navy-soft);font-size:11px;}
+.segb[aria-pressed="true"]{background:var(--navy);color:var(--wit);}
+.segb[aria-pressed="true"] span{color:var(--beige);}
+.tile .tseason{position:absolute;right:6px;top:6px;background:rgba(252,251,248,.92);border-radius:999px;padding:2px 7px;font-size:9.5px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--navy-soft);}
+.tile.off img{opacity:.45;}
+.seg.mode{margin-bottom:14px;}
+.sales{display:flex;flex-direction:column;gap:10px;}
+.sale{background:var(--wit);border:1px solid var(--line);border-radius:var(--r-md);padding:10px;display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;}
+.sale img{width:96px;height:96px;object-fit:cover;border-radius:var(--r-sm);background:var(--room);}
+.sale .si{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.sale .sm{font-size:14px;}
+.sale .since{font-size:11px;color:var(--navy-soft);}
+.sale .sa{grid-column:1/-1;display:flex;gap:6px;align-items:center;}
+.sale .sa .btn{flex:1;padding-inline:6px;white-space:nowrap;font-size:11.5px;}
+.sale .sa span+.btn,.sale .sa span~.btn{flex:0 0 auto;padding-inline:13px;}
+.note{font-size:12px;color:var(--navy-soft);text-align:center;margin:14px 8px 0;}
+.salebtn{display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;width:100%;background:var(--wit);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 14px;font-size:12px;color:var(--navy-soft);}
+.salebtn strong{font-weight:500;font-size:13.5px;color:var(--navy);}
+.salebtn span:last-child{font-size:22px;color:var(--navy);}
+
+/* tab bar */
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--wit);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom,0px);padding-left:max(8px, env(safe-area-inset-left,0px));padding-right:max(8px, env(safe-area-inset-right,0px));}
+.tabbar .in{max-width:620px;margin:0 auto;display:flex;}
+.tab{flex:1;border:none;background:none;padding:12px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--navy-soft);}
+.tab svg{width:24px;height:24px;}
+.tab[aria-selected="true"]{color:var(--navy);}
+.tab[aria-selected="true"] svg{stroke-width:1.9;}
+.fab{position:fixed;z-index:21;right:max(18px, calc(env(safe-area-inset-right,0px) + 18px));bottom:calc(84px + env(safe-area-inset-bottom,0px));
+  border:none;background:var(--navy);color:var(--wit);border-radius:999px;padding:14px 20px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;}
+.fab svg{width:16px;height:16px;}
+
+/* sheet */
+.overlay{position:fixed;inset:0;z-index:40;background:rgba(44,62,82,.38);display:flex;align-items:flex-end;justify-content:center;}
+.sheet{background:var(--room);width:100%;max-width:620px;border-radius:var(--r-lg) var(--r-lg) 0 0;max-height:90vh;overflow-y:auto;
+  padding:10px 18px calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px;}
+.grab{width:38px;height:4px;border-radius:4px;background:var(--beige);margin:0 auto 4px;}
+.sheet h3{font-family:var(--serif);font-weight:400;font-size:22px;margin:0;}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0;}
+.field input[type=text],.field select,.sel{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--wit);font-size:14px;min-height:44px;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.check{display:flex;align-items:center;gap:8px;font-size:13px;}
+.check input{width:20px;height:20px;accent-color:var(--navy);}
+.sheet-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:4px;}
+.sheet-actions .spacer{flex:1;}
+.err{font-size:12px;color:#8A3B32;}
+.preview{width:100%;max-height:260px;object-fit:contain;border-radius:var(--r-md);background:var(--wit);border:1px solid var(--line);}
+.bulk-all{background:var(--wit);border:1px solid var(--line);border-radius:var(--r-md);padding:14px;display:flex;flex-direction:column;gap:10px;}
+.pend{background:var(--wit);border:1px solid var(--line);border-radius:var(--r-md);padding:10px;display:grid;grid-template-columns:72px minmax(0,1fr);gap:10px;}
+.pend img{width:72px;height:72px;object-fit:cover;border-radius:var(--r-sm);}
+.pend .pf{display:flex;flex-direction:column;gap:6px;min-width:0;}
+.pend .pr{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.pend select,.pend input[type=text]{width:100%;min-width:0;font-size:12px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--room);min-height:36px;}
+.pend .pe{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+.picks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+.pick{border:1px solid var(--line);background:var(--wit);border-radius:var(--r-sm);padding:0;overflow:hidden;}
+.pick img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;}
+.pick[aria-pressed="true"]{border:2px solid var(--navy);}
+.toast{position:fixed;z-index:50;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom,0px));
+  background:var(--navy);color:var(--wit);border-radius:999px;padding:10px 18px;font-size:12.5px;max-width:calc(100% - 32px);text-align:center;}
+
+/* Keukenscherm: meer ruimte gebruiken. */
+@media (min-width:900px){
+  .page,.tabbar .in{max-width:1180px;}
+  .sheet{max-width:760px;border-radius:var(--r-lg);margin-bottom:24px;}
+  .overlay{align-items:center;}
+  .outfit{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));}
+  .grid,.picks{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));}
+  .days{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));}
+  .sales{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));}
+  .today-wrap{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:24px;align-items:start;}
+  .today-wrap .head{margin-top:0;}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;}}
+</style>
+</head>
+<body data-home="../" data-terug="10">
+<div id="app">
+  <div class="page">
+    <div class="top">
+      <a class="knop" href="../">Terug</a>
+      <div class="kids" id="kids"></div>
+    </div>
+    <div class="note" id="status" hidden></div>
+    <section id="viewToday"></section>
+    <section id="viewWeek" hidden></section>
+    <section id="viewCloset" hidden></section>
+  </div>
+  <button class="fab" id="fab" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Foto's toevoegen</button>
+  <input type="file" id="bulkInput" accept="image/*" multiple hidden>
+  <nav class="tabbar" aria-label="Weergave"><div class="in" role="tablist">
+    <button class="tab" role="tab" data-view="today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3 4 6l2 4 2-1v12h8V9l2 1 2-4-5-3c0 1.7-1.3 3-3 3S9 4.7 9 3Z"/></svg>Vandaag</button>
+    <button class="tab" role="tab" data-view="week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Week</button>
+    <button class="tab" role="tab" data-view="closet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6a2 2 0 1 1 2 2c-1 0-2 .6-2 1.6V10m0 0L3 16.5c-.8.6-.4 1.5.5 1.5h17c.9 0 1.3-.9.5-1.5L12 10Z"/></svg>Kast</button>
+  </div></nav>
+  <div id="overlay"></div>
+  <div id="toast"></div>
+</div>
+
+<script src="../shared/config.js"></script>
+<script src="../shared/hub-db.js"></script>
+<script src="../shared/kiosk.js"></script>
+<script>
+(function(){
+"use strict";
+
+var CATEGORIES = ["Top","Trui","Broek","Rok","Jurk","Short","Jas","Vest","Kousenbroek","Schoenen","Pyjama","Ondergoed","Zwemkledij","Accessoire"];
+var WARMTHS = ["Licht","Medium","Warm"];
+var SEASONS = ["Tussenseizoen","Zomer","Winter"];
+var OCCASIONS = ["Dagelijks","Speelkledij","Sport","Formeel","Alles"];
+var DAYNAMES = ["Zondag","Maandag","Dinsdag","Woensdag","Donderdag","Vrijdag","Zaterdag"];
+var MONTHS = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
+var WX_LABEL = {clear:"Zonnig",cloudy:"Half bewolkt",overcast:"Bewolkt",rain:"Regen",snow:"Sneeuw",storm:"Onweer"};
+var KID_COLORS = {mila:"var(--mila)", finn:"var(--finn)"};
+var CITY = "Oostende", LAT = 51.2154, LON = 2.9286;
+var ITEM_FIELDS = ['kid','foto','category','warmth','rain','season','brand','size','occasion','forSale','saleSince'];
+
+/* De gegevens komen uit de gedeelde opslag van de hub (Google Sheet). */
+var state = {kids:[], closets:{}, weekPlan:{}};
+var loaded = {kleding:false, info:false};
+var db = null;
+
+var activeView = 'today';
+var activeKidId = null;
+var closetFilter = 'Alles';
+var seasonFilter = 'Alle';
+var closetMode = 'kast';
+var manualWx = null;          /* {temp, rainy} */
+var forecast = null;          /* {updatedAt, days:[{date,max,min,code}]} */
+var forecastState = 'loading';/* loading | ready | none */
+var todayPick = null;
+var pendingUploads = [];
+
+/* ---------- opslag ---------- */
+function itemDoc(it){ var o={}; ITEM_FIELDS.forEach(function(k){ if(it[k]!==undefined) o[k]=it[k]; }); return o; }
+function saveItem(it){ if(!db) return; db.doc('kleding/'+it.id).set(itemDoc(it)).catch(saveFailed); }
+function removeItem(it){
+  if(!db) return;
+  db.doc('kleding/'+it.id).delete().catch(saveFailed);
+  if(it.foto) hubDb.rpc('fotoWeg',{id:it.foto}).catch(function(){});
+}
+function savePlan(kidId){ if(!db) return; db.doc('kledingplan/'+kidId).set({days:state.weekPlan[kidId]||{}}).catch(saveFailed); }
+function saveKids(){ if(!db) return; db.doc('kledinginfo/kinderen').set({kids:state.kids}).catch(saveFailed); }
+function saveFailed(e){ toast(e&&e.code==='not_granted' ? 'Opslaan lukte niet: de sleutel ontbreekt op dit scherm.' : 'Opslaan is niet gelukt. Probeer het opnieuw.'); }
+function persist(){} /* bewaren gebeurt per wijziging, zie hierboven */
+
+/* ---------- foto's: van Google Drive, bewaard op dit toestel ---------- */
+var Fotos = (function(){
+  var urls = {}, wachtrij = {}, bezig = false, idbP = null;
+  function idb(){
+    if(idbP) return idbP;
+    idbP = new Promise(function(res){
+      try{ var r=indexedDB.open('hub-kleding',1); r.onupgradeneeded=function(){ r.result.createObjectStore('fotos'); }; r.onsuccess=function(){ res(r.result); }; r.onerror=function(){ res(null); }; }
+      catch(e){ res(null); }
+    });
+    return idbP;
+  }
+  function lees(id){ return idb().then(function(d){ if(!d) return null; return new Promise(function(res){ try{ var q=d.transaction('fotos').objectStore('fotos').get(id); q.onsuccess=function(){ res(q.result||null); }; q.onerror=function(){ res(null); }; }catch(e){ res(null); } }); }); }
+  function schrijf(id,blob){ return idb().then(function(d){ if(!d) return; try{ d.transaction('fotos','readwrite').objectStore('fotos').put(blob,id); }catch(e){} }); }
+  function b64blob(b64){ var b=atob(b64),a=new Uint8Array(b.length); for(var i=0;i<b.length;i++) a[i]=b.charCodeAt(i); return new Blob([a],{type:'image/jpeg'}); }
+  function zet(id,blob){ if(!urls[id]) urls[id]=URL.createObjectURL(blob); toon(id); }
+  function toon(id){ document.querySelectorAll('img[data-foto="'+id+'"]').forEach(function(im){ if(im.getAttribute('src')!==urls[id]) im.src=urls[id]; }); }
+  function haal(){
+    if(bezig) return;
+    var ids=Object.keys(wachtrij).slice(0,40); if(!ids.length) return;
+    bezig=true; ids.forEach(function(id){ delete wachtrij[id]; });
+    hubDb.rpc('fotos',{ids:ids}).then(function(r){
+      var f=(r&&r.fotos)||{};
+      Object.keys(f).forEach(function(id){ var b=b64blob(f[id]); schrijf(id,b); zet(id,b); });
+    }).catch(function(){ /* volgende keer opnieuw */ }).then(function(){ bezig=false; if(Object.keys(wachtrij).length) haal(); });
+  }
+  var plan=null;
+  function vraag(id){
+    if(!id || urls[id] || wachtrij[id]===0) return;
+    wachtrij[id]=0;
+    lees(id).then(function(b){
+      if(b){ delete wachtrij[id]; zet(id,b); return; }
+      wachtrij[id]=1; clearTimeout(plan); plan=setTimeout(haal,30);
+    });
+  }
+  return {
+    vul:function(root){ (root||document).querySelectorAll('img[data-foto]').forEach(function(im){ var id=im.getAttribute('data-foto'); if(urls[id]) im.src=urls[id]; else vraag(id); }); },
+    nieuw:function(id,blob){ schrijf(id,blob); zet(id,blob); },
+    blob:function(id){ return lees(id).then(function(b){ if(b) return b; return hubDb.rpc('fotos',{ids:[id]}).then(function(r){ var x=r&&r.fotos&&r.fotos[id]; if(!x) throw new Error('foto'); var bl=b64blob(x); schrijf(id,bl); return bl; }); }); },
+  };
+})();
+/* Een img-tag die zijn foto zelf ophaalt. */
+function img(it,cls,alt,extra){ return '<img'+(cls?' class="'+cls+'"':'')+' data-foto="'+esc(it.foto||'')+'" alt="'+esc(alt||it.category)+'"'+(extra||'')+'>'; }
+
+/* ---------- helpers ---------- */
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+function uid(p){ return p + Date.now() + Math.floor(Math.random()*1000); }
+function pickRandom(a){ return (!a||!a.length) ? null : a[Math.floor(Math.random()*a.length)]; }
+function byCat(items,c){ return items.filter(function(i){return i.category===c;}); }
+function neededWarmth(t){ return t<8 ? 'Warm' : (t<18 ? 'Medium' : 'Licht'); }
+function closestWarmth(l,t){ var e=l.filter(function(i){return i.warmth===t;}); return e.length?e:l; }
+function seasonOf(it){ return SEASONS.indexOf(it.season)>-1 ? it.season : 'Tussenseizoen'; }
+function inSeason(it,date){ var m=(date||new Date()).getMonth(), s=seasonOf(it); if(s==='Zomer') return m>=4&&m<=8; if(s==='Winter') return m>=9||m<=3; return true; }
+function seasonal(items,date){ return items.filter(function(i){ return inSeason(i,date); }); }
+function isoToDate(dt){ var p=dt.split('-'); return new Date(+p[0],+p[1]-1,+p[2]); }
+function matchesOcc(it,o){ return o==='Alles' || it.occasion===o || it.occasion==='Alles'; }
+function wxGroup(code){
+  if(code===0) return 'clear'; if(code===1||code===2) return 'cloudy'; if(code===3) return 'overcast';
+  if([51,53,55,56,57,61,63,65,66,67,80,81,82].indexOf(code)>-1) return 'rain';
+  if([71,73,75,77,85,86].indexOf(code)>-1) return 'snow';
+  if([95,96,99].indexOf(code)>-1) return 'storm';
+  return 'cloudy';
+}
+function isRainy(g){ return g==='rain'||g==='storm'||g==='snow'; }
+function iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function next7(){ var o=[],t=new Date(); t.setHours(0,0,0,0); for(var i=0;i<7;i++){var d=new Date(t); d.setDate(d.getDate()+i); o.push(d);} return o; }
+function kidColor(k){ return KID_COLORS[(k.name||'').trim().toLowerCase()] || 'var(--kid-other)'; }
+function closetOf(kid){ return (state.closets[kid]||[]).filter(function(i){ return !i.forSale; }); }
+function saleOf(kid){ return (state.closets[kid]||[]).filter(function(i){ return i.forSale; }); }
+function findItem(kidId,id){ var a=state.closets[kidId]||[]; for(var i=0;i<a.length;i++) if(a[i].id===id) return a[i]; return null; }
+function toast(msg){
+  var t=$('toast'); t.innerHTML='<div class="toast" role="status">'+esc(msg)+'</div>';
+  clearTimeout(t._h); t._h=setTimeout(function(){ t.innerHTML=''; },3200);
+}
+function wxIcon(g){
+  var s='<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">';
+  var sun='<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>';
+  var cloud='<path d="M7 18h10a4 4 0 0 0 .4-8A5.5 5.5 0 0 0 6.8 11 3.5 3.5 0 0 0 7 18Z"/>';
+  if(g==='clear') return s+sun+'</svg>';
+  if(g==='cloudy') return s+'<circle cx="8" cy="8" r="3"/><path d="M8 2.8v1M3 8h1M4.4 4.4l.7.7"/><path d="M9 19h9a3.5 3.5 0 0 0 .3-7 4.8 4.8 0 0 0-9.2 1A3 3 0 0 0 9 19Z"/></svg>';
+  if(g==='rain') return s+'<path d="M7 15h10a4 4 0 0 0 .4-8A5.5 5.5 0 0 0 6.8 8 3.5 3.5 0 0 0 7 15Z"/><path d="M8 18l-1 3M12 18l-1 3M16 18l-1 3"/></svg>';
+  if(g==='snow') return s+'<path d="M7 15h10a4 4 0 0 0 .4-8A5.5 5.5 0 0 0 6.8 8 3.5 3.5 0 0 0 7 15Z"/><path d="M8 19h.01M12 20h.01M16 19h.01"/></svg>';
+  if(g==='storm') return s+'<path d="M7 15h10a4 4 0 0 0 .4-8A5.5 5.5 0 0 0 6.8 8 3.5 3.5 0 0 0 7 15Z"/><path d="m12 15-2 4h3l-2 3"/></svg>';
+  return s+cloud+'</svg>';
+}
+var ICON_SHUFFLE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3c3 0 5 10 9 10h4M4 17h3c1.4 0 2.6-1.4 3.6-3.2M13.4 10.2C14.4 8.4 15.6 7 17 7h3M17 4l3 3-3 3M17 14l3 3-3 3"/></svg>';
+var ICON_CLEAR='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+
+/* ---------- weer: rechtstreeks van Open-Meteo (gratis, zonder sleutel) ---------- */
+function forecastFor(dateISO){
+  if(!forecast || !forecast.days) return null;
+  for(var i=0;i<forecast.days.length;i++){ if(forecast.days[i].date===dateISO){ var d=forecast.days[i]; var g=wxGroup(d.code); return {max:d.max,min:d.min,group:g,rainy:isRainy(g)}; } }
+  return null;
+}
+function todayWx(){
+  if(manualWx) return {temp:manualWx.temp, min:null, group:manualWx.rainy?'rain':'cloudy', rainy:manualWx.rainy, manual:true};
+  var f = forecastFor(iso(new Date()));
+  if(f) return {temp:f.max, min:f.min, group:f.group, rainy:f.rainy, manual:false};
+  return null;
+}
+function loadForecast(){
+  try{ var c=JSON.parse(localStorage.getItem('hub.weer')||'null'); if(c&&c.days){ forecast=c; forecastState='ready'; } }catch(e){}
+  var url='https://api.open-meteo.com/v1/forecast?latitude='+LAT+'&longitude='+LON+'&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Europe%2FBrussels&forecast_days=7';
+  fetch(url).then(function(r){ if(!r.ok) throw new Error('http'); return r.json(); }).then(function(j){
+    var d=j.daily; if(!d||!d.time) throw new Error('vorm');
+    var oud=JSON.stringify(forecast&&forecast.days);
+    forecast={updatedAt:new Date().toISOString(), days:d.time.map(function(t,i){ return {date:t,max:Math.round(d.temperature_2m_max[i]),min:Math.round(d.temperature_2m_min[i]),code:d.weather_code[i]}; })};
+    try{ localStorage.setItem('hub.weer',JSON.stringify(forecast)); }catch(e){}
+    forecastState='ready';
+    if(oud!==JSON.stringify(forecast.days)){ todayPick=null; renderActive(); }
+  }).catch(function(){ if(!forecast){ forecastState='none'; renderActive(); } });
+}
+
+/* ---------- sheet ---------- */
+function openSheet(html){
+  var o=$('overlay');
+  o.innerHTML='<div class="overlay" id="ovl"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>'+html+'</div></div>';
+  $('ovl').addEventListener('click',function(e){ if(e.target.id==='ovl') closeSheet(); });
+  Fotos.vul(o);
+}
+function closeSheet(){ $('overlay').innerHTML=''; }
+
+/* ---------- kids ---------- */
+function renderKids(){
+  var el=$('kids'), h='';
+  state.kids.forEach(function(k){
+    var n=closetOf(k.id).length;
+    h+='<button class="kid" style="--kc:'+kidColor(k)+'" aria-pressed="'+(k.id===activeKidId)+'" data-kid="'+k.id+'"><span class="who">'+esc(k.name)+'</span><span class="meta">'+n+' stuks</span></button>';
+  });
+  if(loaded.info) h+='<button class="kid add" id="addKid" aria-label="Kind toevoegen">+</button>';
+  el.innerHTML=h;
+  el.querySelectorAll('[data-kid]').forEach(function(b){ b.onclick=function(){ activeKidId=b.getAttribute('data-kid'); todayPick=null; saveUi(); render(); }; });
+  if($('addKid')) $('addKid').onclick=openAddKid;
+}
+function openAddKid(){
+  openSheet('<h3>Kind toevoegen</h3><div class="field"><span class="label">Naam</span><input type="text" id="kidName" placeholder="Voornaam"></div><div class="err" id="kidErr" hidden>Vul een naam in.</div><div class="sheet-actions"><button class="btn quiet" id="kc">Annuleren</button><button class="btn" id="ks">Toevoegen</button></div>');
+  $('kc').onclick=closeSheet;
+  $('kidName').oninput=function(){ $('kidErr').hidden=true; };
+  $('ks').onclick=function(){
+    var n=$('kidName').value.trim(); if(!n){ $('kidErr').hidden=false; return; }
+    var id=uid('k'); state.kids.push({id:id,name:n}); state.closets[id]=[]; activeKidId=id; closeSheet(); saveKids(); render();
+  };
+}
+
+/* ---------- view switching ---------- */
+function switchView(v){
+  activeView=v;
+  document.querySelectorAll('.tab').forEach(function(t){ t.setAttribute('aria-selected', String(t.getAttribute('data-view')===v)); });
+  $('viewToday').hidden = v!=='today'; $('viewWeek').hidden = v!=='week'; $('viewCloset').hidden = v!=='closet';
+  $('fab').hidden = v!=='closet' || !state.kids.length || closetMode!=='kast';
+  renderActive();
+  window.scrollTo(0,0);
+}
+function renderActive(){
+  if(activeView==='today') renderToday(); else if(activeView==='week') renderWeek(); else renderCloset();
+  Fotos.vul(document.querySelector('.page'));
+}
+function loading(){ return '<div class="empty" style="margin-top:20px"><strong>Even laden…</strong>De kleerkast wordt opgehaald.</div>'; }
+
+/* ---------- today ---------- */
+function computeOutfit(kidId,temp,rainy){
+  var items=seasonal(closetOf(kidId), new Date()), want=neededWarmth(temp), rows=[];
+  if(Math.random()<0.35 && byCat(items,'Jurk').length){ rows.push({label:'Jurk',item:pickRandom(closestWarmth(byCat(items,'Jurk'),want))}); }
+  else {
+    rows.push({label:'Top',item:pickRandom(closestWarmth(byCat(items,'Top'),want))});
+    var pool=byCat(items,'Broek').concat(byCat(items,'Rok')); if(temp>=20) pool=pool.concat(byCat(items,'Short'));
+    var bp=pickRandom(pool); rows.push({label:bp?bp.category:'Broek',item:bp});
+    if(bp&&bp.category==='Rok'){ var ks=byCat(items,'Kousenbroek'); if(ks.length) rows.push({label:'Kousenbroek',item:pickRandom(ks)}); }
+  }
+  if(temp<18){ var tr=byCat(items,'Trui'); if(tr.length) rows.push({label:'Trui',item:pickRandom(tr)}); }
+  if(temp<17||rainy){ var j=byCat(items,'Jas').concat(byCat(items,'Vest')); if(rainy){ var rj=j.filter(function(i){return i.rain;}); if(rj.length) j=rj; } rows.push({label:'Jas of vest',item:pickRandom(j)}); }
+  var s=byCat(items,'Schoenen'); if(rainy){ var rs=s.filter(function(i){return i.rain;}); if(rs.length) s=rs; } rows.push({label:'Schoenen',item:pickRandom(s)});
+  if(temp<5){ var ac=pickRandom(byCat(items,'Accessoire')); if(ac) rows.push({label:'Accessoire',item:ac}); }
+  return rows;
+}
+function renderToday(){
+  var el=$('viewToday');
+  if(!loaded.info||!loaded.kleding){ el.innerHTML=loading(); return; }
+  if(!state.kids.length){ el.innerHTML=emptyKids(); bindEmptyKids(); return; }
+  var w=todayWx(), d=new Date(), h='<div class="today-wrap"><div>';
+  h+='<div class="head"><h2>'+DAYNAMES[d.getDay()]+' '+d.getDate()+' '+MONTHS[d.getMonth()]+'</h2><span class="label">'+esc(CITY)+'</span></div>';
+  h+='<div class="weather">';
+  if(w){
+    h+=wxIcon(w.group)+'<div class="temp">'+Math.round(w.temp)+'°'+(w.min!=null?'<small>/ '+Math.round(w.min)+'°</small>':'')+'</div>';
+    h+='<div class="desc">'+(w.manual?(w.rainy?'Regen, zelf ingevuld':'Droog, zelf ingevuld'):WX_LABEL[w.group])+'</div>';
+  } else if(forecastState==='loading'){
+    h+=wxIcon('cloudy')+'<div class="temp" style="font-size:22px">Weer laden…</div><div class="desc">Even geduld.</div>';
+  } else {
+    h+=wxIcon('cloudy')+'<div class="temp" style="font-size:22px">Geen voorspelling</div><div class="desc">Het weer is nu niet bereikbaar. Vul het weer van vandaag zelf in.</div>';
+  }
+  h+='<div class="foot"><span>'+(forecast&&forecast.updatedAt&&!manualWx?'Voorspelling van '+fmtUpdated(forecast.updatedAt):(manualWx?'Zelf ingevuld':''))+'</span>';
+  h+= manualWx ? '<button class="link" id="useFc">Voorspelling gebruiken</button>' : '<button class="link" id="openManual">Zelf invullen</button>';
+  h+='</div><div class="manual" id="manualBox" hidden><input type="number" id="mTemp" inputmode="decimal" placeholder="°C" aria-label="Temperatuur"><label><input type="checkbox" id="mRain"> Regen</label><button class="btn sm" id="mApply">Gebruiken</button><span class="err" id="mErr" hidden>Vul een temperatuur in.</span></div>';
+  h+='</div></div><div>';
+  var items=closetOf(activeKidId);
+  var inSeasonCount=seasonal(items,new Date()).length;
+  h+='<div class="head"><h2>Outfit</h2>'+(w&&items.length?'<button class="btn ghost sm" id="shuf">Ander voorstel</button>':'')+'</div>';
+  if(!items.length){ h+='<div class="empty"><strong>De kast is nog leeg</strong>Voeg foto\'s toe in de kast om outfits te krijgen.<button class="btn sm" id="goCloset">Naar de kast</button></div>'; }
+  else if(!inSeasonCount){ h+='<div class="empty"><strong>Niets voor dit seizoen</strong>Alle stukken in de kast zijn voor een ander seizoen.</div>'; }
+  else if(!w){ h+='<div class="empty"><strong>Nog geen weer voor vandaag</strong>Vul de temperatuur in, dan stel ik een outfit voor.</div>'; }
+  else {
+    if(!todayPick || todayPick.kid!==activeKidId) todayPick={kid:activeKidId, rows:computeOutfit(activeKidId,w.temp,w.rainy)};
+    h+='<div class="outfit">'+todayPick.rows.map(function(r){
+      if(!r.item) return '<div class="piece missing">'+esc(r.label)+'<br>niet in de kast</div>';
+      var sub=[r.item.brand, r.item.size?'maat '+r.item.size:''].filter(Boolean).join(' · ')||r.item.warmth;
+      return '<div class="piece">'+img(r.item,'',r.label)+'<div class="cap"><span class="label">'+esc(r.label)+'</span><span>'+esc(sub)+'</span></div></div>';
+    }).join('')+'</div>';
+  }
+  h+='</div></div>';
+  el.innerHTML=h;
+  var om=$('openManual'); if(om) om.onclick=function(){ $('manualBox').hidden=false; $('mTemp').focus(); };
+  var uf=$('useFc'); if(uf) uf.onclick=function(){ manualWx=null; todayPick=null; saveUi(); renderActive(); };
+  $('mTemp').oninput=function(){ $('mErr').hidden=true; };
+  $('mApply').onclick=function(){ var t=parseFloat($('mTemp').value); if(isNaN(t)){ $('mErr').hidden=false; return; } manualWx={temp:t,rainy:$('mRain').checked}; todayPick=null; saveUi(); renderActive(); };
+  var sh=$('shuf'); if(sh) sh.onclick=function(){ todayPick=null; renderActive(); };
+  var gc=$('goCloset'); if(gc) gc.onclick=function(){ switchView('closet'); };
+}
+function fmtUpdated(s){ var d=new Date(s); if(isNaN(d)) return ''; return DAYNAMES[d.getDay()].toLowerCase()+' '+d.getDate()+' '+MONTHS[d.getMonth()]; }
+function saveUi(){ try{ sessionStorage.setItem('op-ui', JSON.stringify({view:activeView, kid:activeKidId, filter:closetFilter, season:seasonFilter, mode:closetMode, manual:manualWx})); }catch(e){} }
+function emptyKids(){ return '<div class="empty" style="margin-top:20px"><strong>Nog geen kinderen</strong>Voeg een kind toe om te beginnen.<button class="btn sm" id="ek">Kind toevoegen</button></div>'; }
+function bindEmptyKids(){ var b=$('ek'); if(b) b.onclick=openAddKid; }
+
+/* ---------- week ---------- */
+function usageMap(kidId,exclude){ var u={},days=state.weekPlan[kidId]||{}; Object.keys(days).forEach(function(dt){ if(dt===exclude) return; var s=days[dt].slots||{}; Object.keys(s).forEach(function(k){ if(s[k]) u[s[k]]=(u[s[k]]||0)+1; }); }); return u; }
+function leastUsed(c,u){ if(!c.length) return null; var m=Infinity; c.forEach(function(x){ m=Math.min(m,u[x.id]||0); }); return pickRandom(c.filter(function(x){ return (u[x.id]||0)===m; })); }
+function assignDay(kidId,temp,occ,dt){
+  var items=seasonal(closetOf(kidId), isoToDate(dt)).filter(function(i){return matchesOcc(i,occ);}), u=usageMap(kidId,dt), want=neededWarmth(temp), s={};
+  if(Math.random()<0.3 && byCat(items,'Jurk').length){ var jp=leastUsed(closestWarmth(byCat(items,'Jurk'),want),u); if(jp) s.jurk=jp.id; }
+  else {
+    var tp=leastUsed(closestWarmth(byCat(items,'Top'),want),u); if(tp) s.top=tp.id;
+    var pool=byCat(items,'Broek').concat(byCat(items,'Rok')); if(temp>=20) pool=pool.concat(byCat(items,'Short'));
+    var bp=pickRandom(pool); if(bp) s.bottom=bp.id;
+  }
+  if(temp<18){ var t=leastUsed(byCat(items,'Trui'),u); if(t) s.trui=t.id; }
+  if(temp<5){ var a=leastUsed(byCat(items,'Accessoire'),u); if(a) s.accessoire=a.id; }
+  return s;
+}
+function pruneWeek(){ var keep={}; next7().forEach(function(d){ keep[iso(d)]=1; }); Object.keys(state.weekPlan).forEach(function(k){ var days=state.weekPlan[k]||{}; Object.keys(days).forEach(function(dt){ if(!keep[dt]) delete days[dt]; }); }); }
+function dayTemp(dt){ var f=forecastFor(dt); if(f) return f.max; if(dt===iso(new Date()) && manualWx) return manualWx.temp; return 15; }
+function renderWeek(){
+  var el=$('viewWeek');
+  if(!loaded.info||!loaded.kleding){ el.innerHTML=loading(); return; }
+  if(!state.kids.length){ el.innerHTML=emptyKids(); bindEmptyKids(); return; }
+  pruneWeek();
+  var dates=next7(), h='<div class="head"><h2>Deze week</h2><button class="btn sm" id="fillWeek">Week invullen</button></div>';
+  if(forecastState==='none') h+='<div class="empty" style="margin-bottom:12px;padding:14px">Het weer is nu niet bereikbaar; tot dan rekent de planner met 15°.</div>';
+  h+='<div class="days">';
+  dates.forEach(function(d,idx){
+    var dt=iso(d), f=forecastFor(dt);
+    h+='<div class="day'+(idx===0?' today':'')+'"><div class="day-top"><span class="day-name">'+(idx===0?'Vandaag':DAYNAMES[d.getDay()])+' <span class="label">'+d.getDate()+' '+MONTHS[d.getMonth()]+'</span></span>';
+    h+='<span class="day-wx">'+(f? wxIcon(f.group)+Math.round(f.max)+'° / '+Math.round(f.min)+'°' : '')+'</span></div>';
+    state.kids.forEach(function(k){
+      state.weekPlan[k.id]=state.weekPlan[k.id]||{};
+      var dd=state.weekPlan[k.id][dt]||{occasion:'Dagelijks',slots:{}};
+      h+='<div class="krow" style="--kc:'+kidColor(k)+'" data-kid="'+k.id+'" data-date="'+dt+'"><div class="krow-top"><span class="kdot"></span><span class="kname">'+esc(k.name)+'</span>';
+      h+='<select class="occ" data-a="occ" aria-label="Gelegenheid">'+OCCASIONS.map(function(o){ return '<option'+(o===dd.occasion?' selected':'')+'>'+o+'</option>'; }).join('')+'</select></div>';
+      var thumbs=''; ['jurk','top','bottom','trui','accessoire'].forEach(function(sl){ var it=dd.slots&&dd.slots[sl]&&findItem(k.id,dd.slots[sl]); if(it&&!it.forSale) thumbs+=img(it,'thumb',it.category,' data-a="swap" data-slot="'+sl+'"'); });
+      h+='<div class="thumbs">'+(thumbs||'<span class="none">Nog niets gepland</span>')+'<span class="tools"><button class="tool" data-a="shuf" aria-label="Ander voorstel">'+ICON_SHUFFLE+'</button>'+(thumbs?'<button class="tool" data-a="clr" aria-label="Leegmaken">'+ICON_CLEAR+'</button>':'')+'</span></div></div>';
+    });
+    h+='</div>';
+  });
+  h+='</div>';
+  el.innerHTML=h;
+  $('fillWeek').onclick=function(){
+    state.kids.forEach(function(k){ state.weekPlan[k.id]=state.weekPlan[k.id]||{}; dates.forEach(function(d){ var dt=iso(d), ex=state.weekPlan[k.id][dt]; state.weekPlan[k.id][dt]={occasion:ex?ex.occasion:'Dagelijks',slots:assignDay(k.id,dayTemp(dt),ex?ex.occasion:'Dagelijks',dt)}; }); savePlan(k.id); });
+    renderActive();
+  };
+  el.querySelectorAll('.krow').forEach(function(row){
+    var kid=row.getAttribute('data-kid'), dt=row.getAttribute('data-date');
+    function dd(){ state.weekPlan[kid][dt]=state.weekPlan[kid][dt]||{occasion:'Dagelijks',slots:{}}; return state.weekPlan[kid][dt]; }
+    row.querySelector('[data-a="occ"]').onchange=function(e){ var x=dd(); x.occasion=e.target.value; x.slots=assignDay(kid,dayTemp(dt),x.occasion,dt); savePlan(kid); renderActive(); };
+    row.querySelector('[data-a="shuf"]').onclick=function(){ var x=dd(); x.slots=assignDay(kid,dayTemp(dt),x.occasion,dt); savePlan(kid); renderActive(); };
+    var c=row.querySelector('[data-a="clr"]'); if(c) c.onclick=function(){ dd().slots={}; savePlan(kid); renderActive(); };
+    row.querySelectorAll('[data-a="swap"]').forEach(function(t){ t.onclick=function(){ openPicker(kid,dt,t.getAttribute('data-slot')); }; });
+  });
+}
+function openPicker(kid,dt,slot){
+  var x=state.weekPlan[kid][dt], items=closetOf(kid), c;
+  if(slot==='bottom'){ c=byCat(items,'Broek').concat(byCat(items,'Rok')); if(dayTemp(dt)>=20) c=c.concat(byCat(items,'Short')); }
+  else c=byCat(items,{jurk:'Jurk',top:'Top',trui:'Trui',accessoire:'Accessoire'}[slot]);
+  c=c.filter(function(i){ return matchesOcc(i,x.occasion) && inSeason(i,isoToDate(dt)); });
+  if(!c.length){ toast('Geen passende stukken in de kast.'); return; }
+  openSheet('<h3>Kies een stuk</h3><div class="picks">'+c.map(function(i){ return '<button class="pick" data-id="'+i.id+'" aria-pressed="'+(x.slots[slot]===i.id)+'">'+img(i)+'</button>'; }).join('')+'</div><div class="sheet-actions"><button class="btn quiet" id="pc">Sluiten</button></div>');
+  $('pc').onclick=closeSheet;
+  document.querySelectorAll('.pick').forEach(function(p){ p.onclick=function(){ x.slots[slot]=p.getAttribute('data-id'); closeSheet(); savePlan(kid); renderActive(); }; });
+}
+
+/* ---------- closet ---------- */
+function renderCloset(){
+  var el=$('viewCloset');
+  if(!loaded.info||!loaded.kleding){ el.innerHTML=loading(); return; }
+  if(!state.kids.length){ el.innerHTML=emptyKids(); bindEmptyKids(); return; }
+  var items=closetOf(activeKidId), sale=saleOf(activeKidId);
+  $('fab').hidden = closetMode!=='kast';
+  var h='<div class="head"><h2>'+(closetMode==='kast'?'Kleerkast':'Te koop')+'</h2>'+(closetMode==='koop'&&sale.length?'<button class="btn sm" id="exp">Exporteren</button>':'<span class="label">'+(closetMode==='kast'?items.length:sale.length)+' stuks</span>')+'</div>';
+  h+='<div class="seg mode" role="group" aria-label="Weergave kast"><button class="segb" data-m="kast" aria-pressed="'+(closetMode==='kast')+'">In de kast <span>'+items.length+'</span></button><button class="segb" data-m="koop" aria-pressed="'+(closetMode==='koop')+'">Te koop <span>'+sale.length+'</span></button></div>';
+  if(closetMode==='koop'){
+    if(!sale.length){ h+='<div class="empty"><strong>Niets te koop</strong>Open een stuk in de kast en tik op "Te koop zetten" als het te klein is.</div>'; }
+    else {
+      h+='<div class="sales">'+sale.map(function(i){
+        var meta=[i.brand||'Geen merk', i.size?'maat '+i.size:'geen maat'].join(' · ');
+        return '<div class="sale" data-id="'+i.id+'">'+img(i)+'<div class="si"><span class="label">'+esc(i.category)+'</span><span class="sm">'+esc(meta)+'</span>'+(i.saleSince?'<span class="since">Te koop sinds '+fmtShort(i.saleSince)+'</span>':'')+'</div><div class="sa"><button class="btn quiet sm" data-a="edit">Aanpassen</button><button class="btn quiet sm" data-a="back">Terug in kast</button><button class="btn ghost sm" data-a="sold">Verkocht</button></div><div class="sa" data-a="confirm" hidden><span style="font-size:12px;flex:1">Verkocht? Dan verdwijnt het uit de lijst.</span><button class="btn quiet sm" data-a="no">Nee</button><button class="btn sm" data-a="yes">Ja</button></div></div>';
+      }).join('')+'</div>';
+      h+='<p class="note">De export is een zip met de foto\'s en een overzicht met soort, merk en maat per stuk, plus een titel en beschrijving om in Vinted te plakken.</p>';
+    }
+  } else if(!items.length){ h+='<div class="empty"><strong>Nog niets in de kast</strong>Voeg in één keer meerdere foto\'s toe en stel ze daarna in. Dat gaat het makkelijkst met je gsm.</div>'; }
+  else {
+    var bySeason=seasonFilter==='Alle'?items:items.filter(function(i){ return seasonOf(i)===seasonFilter; });
+    var cats=['Alles'].concat(CATEGORIES.filter(function(c){ return bySeason.some(function(i){return i.category===c;}); }));
+    if(cats.indexOf(closetFilter)<0) closetFilter='Alles';
+    var shown=closetFilter==='Alles'?bySeason:byCat(bySeason,closetFilter);
+    h+='<div class="seg" role="group" aria-label="Seizoen">'+['Alle'].concat(SEASONS).map(function(sn){ var n=sn==='Alle'?items.length:items.filter(function(i){return seasonOf(i)===sn;}).length; return '<button class="segb" data-s="'+sn+'" aria-pressed="'+(sn===seasonFilter)+'">'+sn+' <span>'+n+'</span></button>'; }).join('')+'</div>';
+    h+='<div class="chips">'+cats.map(function(c){ var n=c==='Alles'?bySeason.length:byCat(bySeason,c).length; return '<button class="chip" data-c="'+c+'" aria-pressed="'+(c===closetFilter)+'">'+c+' '+n+'</button>'; }).join('')+'</div>';
+    h+= shown.length ? '<div class="grid">'+shown.map(function(i){ var sn=seasonOf(i); return '<button class="tile'+(inSeason(i)?'':' off')+'" data-id="'+i.id+'">'+img(i,'','',' loading="lazy"')+'<span class="tcap">'+esc(i.category)+'</span>'+(sn!=='Tussenseizoen'?'<span class="tseason">'+sn+'</span>':'')+'</button>'; }).join('')+'</div>' : '<div class="empty">Geen stukken voor deze keuze.</div>';
+  }
+  el.innerHTML=h;
+  el.querySelectorAll('[data-m]').forEach(function(b){ b.onclick=function(){ closetMode=b.getAttribute('data-m'); saveUi(); $('fab').hidden=closetMode!=='kast'; renderActive(); }; });
+  el.querySelectorAll('.chip').forEach(function(c){ c.onclick=function(){ closetFilter=c.getAttribute('data-c'); saveUi(); renderActive(); }; });
+  el.querySelectorAll('[data-s]').forEach(function(b){ b.onclick=function(){ seasonFilter=b.getAttribute('data-s'); saveUi(); renderActive(); }; });
+  el.querySelectorAll('.tile').forEach(function(t){ t.onclick=function(){ openEdit(t.getAttribute('data-id')); }; });
+  el.querySelectorAll('.sale').forEach(function(row){
+    var id=row.getAttribute('data-id'), it=findItem(activeKidId,id), q=function(a){ return row.querySelector('[data-a="'+a+'"]'); };
+    q('edit').onclick=function(){ openEdit(id); };
+    q('back').onclick=function(){ delete it.forSale; delete it.saleSince; saveItem(it); render(); toast('Terug in de kast.'); };
+    q('sold').onclick=function(){ q('confirm').hidden=false; };
+    q('no').onclick=function(){ q('confirm').hidden=true; };
+    q('yes').onclick=function(){ state.closets[activeKidId]=state.closets[activeKidId].filter(function(i){return i.id!==id;}); removeItem(it); render(); toast('Gemarkeerd als verkocht.'); };
+  });
+  var ex=$('exp'); if(ex) ex.onclick=exportSale;
+}
+function fmtShort(isoStr){ var d=isoToDate(isoStr); return d.getDate()+' '+MONTHS[d.getMonth()]+' '+d.getFullYear(); }
+
+/* ---------- export for Vinted ---------- */
+var CAT_WORD={Top:'T-shirt',Trui:'Trui',Broek:'Broek',Rok:'Rok',Jurk:'Jurk',Short:'Short',Jas:'Jas',Vest:'Vest',Kousenbroek:'Kousenbroek',Schoenen:'Schoenen',Pyjama:'Pyjama',Ondergoed:'Ondergoed',Zwemkledij:'Zwemkledij',Accessoire:'Accessoire'};
+function loadJsZip(){
+  if(window.JSZip) return Promise.resolve(window.JSZip);
+  return new Promise(function(res,rej){ var sc=document.createElement('script'); sc.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'; sc.onload=function(){ window.JSZip?res(window.JSZip):rej(new Error('jszip')); }; sc.onerror=rej; document.head.appendChild(sc); });
+}
+function slug(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,30); }
+function csvCell(v){ v=String(v==null?'':v); return /[;"\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }
+async function exportSale(){
+  var kid=state.kids.find(function(k){return k.id===activeKidId;}), sale=saleOf(activeKidId);
+  if(!sale.length) return;
+  var btn=$('exp'); btn.disabled=true; btn.textContent='Bezig…';
+  try{
+    var JSZip=await loadJsZip(), zip=new JSZip(), rows=[['Nr','Foto','Kind','Soort','Merk','Maat','Seizoen','Titel','Beschrijving']], txt=[], missing=0;
+    for(var n=0;n<sale.length;n++){
+      var it=sale[n], nr=String(n+1).padStart(2,'0'), word=CAT_WORD[it.category]||it.category;
+      var fname=nr+'_'+[word,it.brand,it.size?'maat-'+it.size:''].filter(Boolean).map(slug).join('_')+'.jpg';
+      var title=[word, it.brand, it.size?'maat '+it.size:''].filter(Boolean).join(' ');
+      var desc=word+(it.brand?' van '+it.brand:'')+(it.size?', maat '+it.size:'')+'.'+(seasonOf(it)!=='Tussenseizoen'?' Voor de '+seasonOf(it).toLowerCase()+'.':'');
+      try{ zip.file('fotos/'+fname, await Fotos.blob(it.foto)); }catch(e){ missing++; fname='(foto niet gevonden)'; }
+      rows.push([nr,fname,kid.name,word,it.brand||'',it.size||'',seasonOf(it),title,desc]);
+      txt.push(nr+'  '+fname+'\nTitel: '+title+'\nMerk: '+(it.brand||'-')+'\nMaat: '+(it.size||'-')+'\nBeschrijving: '+desc+'\n');
+    }
+    zip.file('overzicht.csv','﻿'+rows.map(function(r){ return r.map(csvCell).join(';'); }).join('\r\n'));
+    zip.file('vinted-teksten.txt','Te koop - '+kid.name+' - '+sale.length+' stuks\n\n'+txt.join('\n'));
+    var blob=await zip.generateAsync({type:'blob'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='te-koop-'+slug(kid.name).toLowerCase()+'-'+iso(new Date())+'.zip';
+    document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },2000);
+    toast(missing? missing+' foto\'s ontbreken in de export.' : 'Export klaar.');
+  }catch(e){
+    toast('Exporteren is niet gelukt. Probeer het opnieuw.');
+  }
+  btn.disabled=false; btn.textContent='Exporteren';
+}
+function opts(list,sel){ return list.map(function(o){ return '<option'+(o===sel?' selected':'')+'>'+o+'</option>'; }).join(''); }
+var OCC_SET=OCCASIONS.filter(function(o){return o!=='Alles';});
+function openEdit(id){
+  var it=findItem(activeKidId,id); if(!it) return;
+  openSheet(img(it,'preview','')
+   +'<div class="row2"><label class="field"><span class="label">Soort</span><select class="sel" id="eC">'+opts(CATEGORIES,it.category)+'</select></label><label class="field"><span class="label">Warmte</span><select class="sel" id="eW">'+opts(WARMTHS,it.warmth)+'</select></label></div>'
+   +'<div class="row2"><label class="field"><span class="label">Merk</span><input type="text" id="eB" value="'+esc(it.brand)+'"></label><label class="field"><span class="label">Maat</span><input type="text" id="eS" value="'+esc(it.size)+'"></label></div>'
+   +'<div class="row2"><label class="field"><span class="label">Gelegenheid</span><select class="sel" id="eO">'+opts(OCC_SET,it.occasion)+'</select></label><label class="field"><span class="label">Seizoen</span><select class="sel" id="eZ">'+opts(SEASONS,seasonOf(it))+'</select></label></div>'
+   +'<label class="check"><input type="checkbox" id="eR"'+(it.rain?' checked':'')+'> Regenbestendig</label>'
+   +(it.forSale?'':'<button class="salebtn" id="eK"><span><strong>Te koop zetten</strong><br>Te klein? Haal het uit de kast en zet het bij Te koop.</span><span aria-hidden="true">›</span></button>')
+   +'<div class="sheet-actions"><button class="btn danger" id="eD">Verwijderen</button><span class="spacer"></span><button class="btn quiet" id="eX">Annuleren</button><button class="btn" id="eOk">Opslaan</button></div>'
+   +'<div class="sheet-actions" id="eConfirm" hidden><span style="flex:1;font-size:13px">Dit stuk verwijderen? De foto gaat naar de prullenbak van Google Drive.</span><button class="btn quiet sm" id="eNo">Nee</button><button class="btn sm" id="eYes">Ja, verwijderen</button></div>');
+  $('eX').onclick=closeSheet;
+  var ek=$('eK'); if(ek) ek.onclick=function(){ it.brand=$('eB').value.trim(); it.size=$('eS').value.trim(); it.forSale=true; it.saleSince=iso(new Date()); saveItem(it); closeSheet(); render(); toast('Naar Te koop verplaatst.'); };
+  $('eD').onclick=function(){ $('eConfirm').hidden=false; };
+  $('eNo').onclick=function(){ $('eConfirm').hidden=true; };
+  $('eYes').onclick=function(){ state.closets[activeKidId]=state.closets[activeKidId].filter(function(i){return i.id!==id;}); removeItem(it); closeSheet(); render(); toast('Verwijderd uit de kast.'); };
+  $('eOk').onclick=function(){ it.category=$('eC').value; it.warmth=$('eW').value; it.brand=$('eB').value.trim(); it.size=$('eS').value.trim(); it.occasion=$('eO').value; it.season=$('eZ').value; it.rain=$('eR').checked; saveItem(it); closeSheet(); render(); toast('Opgeslagen.'); };
+}
+function compress(file){
+  return new Promise(function(res,rej){ var r=new FileReader(); r.onload=function(ev){ var im=new Image(); im.onload=function(){ var s=Math.min(1,640/im.width), c=document.createElement('canvas'); c.width=Math.round(im.width*s); c.height=Math.round(im.height*s); c.getContext('2d').drawImage(im,0,0,c.width,c.height); res(c.toDataURL('image/jpeg',0.8)); }; im.onerror=rej; im.src=ev.target.result; }; r.onerror=rej; r.readAsDataURL(file); });
+}
+function dataURLtoBlob(u){ var p=u.split(','),m=/:(.*?);/.exec(p[0])[1],b=atob(p[1]),a=new Uint8Array(b.length); for(var i=0;i<b.length;i++) a[i]=b.charCodeAt(i); return new Blob([a],{type:m}); }
+function onFiles(e){
+  var files=Array.prototype.slice.call(e.target.files||[]); e.target.value='';
+  if(!files.length) return;
+  toast('Foto\'s klaarzetten…');
+  pendingUploads=[];
+  Promise.all(files.map(function(f){ return compress(f).then(function(u){ pendingUploads.push({t:uid('p'),url:u,category:'Top',warmth:'Medium',season:'Tussenseizoen',rain:false,brand:'',size:'',occasion:'Dagelijks'}); }).catch(function(){}); }))
+    .then(function(){ if(!pendingUploads.length){ toast('Deze foto\'s konden niet gelezen worden.'); return; } renderBulk(); });
+}
+function renderBulk(){
+  if(!pendingUploads.length){ closeSheet(); return; }
+  var kid=state.kids.find(function(k){return k.id===activeKidId;});
+  var h='<h3>'+pendingUploads.length+' foto\'s voor '+esc(kid?kid.name:'')+'</h3>';
+  h+='<div class="bulk-all"><span class="label">Voor alle foto\'s tegelijk</span><div class="row2"><select class="sel" id="aC">'+opts(CATEGORIES,'Top')+'</select><select class="sel" id="aW">'+opts(WARMTHS,'Medium')+'</select></div><div class="row2"><input class="sel" type="text" id="aB" placeholder="Merk"><input class="sel" type="text" id="aS" placeholder="Maat"></div><div class="row2"><select class="sel" id="aO">'+opts(OCC_SET,'Dagelijks')+'</select><select class="sel" id="aZ" aria-label="Seizoen">'+opts(SEASONS,'Tussenseizoen')+'</select></div><label class="check"><input type="checkbox" id="aR"> Regenbestendig</label><div><button class="btn ghost sm" id="aApply">Op alle toepassen</button></div></div>';
+  h+=pendingUploads.map(function(p){ return '<div class="pend" data-t="'+p.t+'"><img src="'+p.url+'" alt=""><div class="pf"><div class="pr"><select data-f="category">'+opts(CATEGORIES,p.category)+'</select><select data-f="warmth">'+opts(WARMTHS,p.warmth)+'</select></div><div class="pr"><input type="text" data-f="brand" placeholder="Merk" value="'+esc(p.brand)+'"><input type="text" data-f="size" placeholder="Maat" value="'+esc(p.size)+'"></div><div class="pr"><select data-f="occasion">'+opts(OCC_SET,p.occasion)+'</select><select data-f="season" aria-label="Seizoen">'+opts(SEASONS,p.season)+'</select></div><div class="pr"><span></span><div class="pe"><label class="check" style="font-size:12px"><input type="checkbox" data-f="rain"'+(p.rain?' checked':'')+'> Regen</label><button class="link" data-f="remove">Weg</button></div></div></div></div>'; }).join('');
+  h+='<div class="sheet-actions"><button class="btn quiet" id="bX">Annuleren</button><button class="btn" id="bOk">In de kast zetten</button></div><div class="label" id="bProg"></div>';
+  openSheet(h);
+  $('bX').onclick=function(){ pendingUploads=[]; closeSheet(); };
+  $('aApply').onclick=function(){ var v={category:$('aC').value,warmth:$('aW').value,brand:$('aB').value.trim(),size:$('aS').value.trim(),occasion:$('aO').value,season:$('aZ').value,rain:$('aR').checked}; pendingUploads.forEach(function(p){ Object.assign(p,v); }); renderBulk(); };
+  document.querySelectorAll('.pend').forEach(function(row){
+    var p=pendingUploads.find(function(x){return x.t===row.getAttribute('data-t');}); if(!p) return;
+    row.querySelectorAll('[data-f]').forEach(function(f){ var k=f.getAttribute('data-f');
+      if(k==='remove') f.onclick=function(){ pendingUploads=pendingUploads.filter(function(x){return x!==p;}); renderBulk(); };
+      else if(k==='rain') f.onchange=function(){ p.rain=f.checked; };
+      else f.onchange=function(){ p[k]=f.value.trim ? f.value.trim() : f.value; };
+    });
+  });
+  $('bOk').onclick=saveBulk;
+}
+async function saveBulk(){
+  $('bOk').disabled=true; $('bX').disabled=true;
+  var total=pendingUploads.length, done=0, errs=0, kidId=activeKidId; state.closets[kidId]=state.closets[kidId]||[];
+  for(var i=0;i<pendingUploads.length;i++){ var p=pendingUploads[i];
+    try{
+      var r=await hubDb.rpc('foto',{data:p.url.split(',')[1]});
+      Fotos.nieuw(r.id, dataURLtoBlob(p.url));
+      var it={id:uid('i'),kid:kidId,foto:r.id,category:p.category,warmth:p.warmth,rain:p.rain,season:p.season,brand:p.brand,size:p.size,occasion:p.occasion};
+      state.closets[kidId].push(it); saveItem(it);
+    }
+    catch(e){ errs++; }
+    done++; var pg=$('bProg'); if(pg) pg.textContent='Opslaan '+done+' van '+total;
+  }
+  pendingUploads=[]; closeSheet(); render();
+  toast(errs? errs+' foto\'s zijn niet opgeslagen.' : total+' stuks in de kast gezet.');
+}
+
+/* ---------- gegevens uit de opslag ---------- */
+function rebuildCloset(docs){
+  var c={};
+  docs.forEach(function(d){ var it=Object.assign({id:d.id}, d.data()); (c[it.kid]=c[it.kid]||[]).push(it); });
+  Object.keys(c).forEach(function(k){ c[k].sort(function(a,b){ return a.id<b.id?-1:a.id>b.id?1:0; }); });
+  state.closets=c;
+}
+function keepActiveKid(){
+  if(!state.kids.some(function(k){return k.id===activeKidId;})) activeKidId=state.kids[0]?state.kids[0].id:null;
+}
+function showStatus(t){ var s=$('status'); s.hidden=!t; s.textContent=t||''; }
+async function connect(){
+  db = await claude.use('db');
+  if(!db){ showStatus('De opslag is niet bereikbaar.'); return; }
+  var timer=setTimeout(function(){ if(!loaded.kleding) showStatus('De kleerkast is nog niet bereikbaar; misschien is de wifi weg.'); },10000);
+  function fout(e){ clearTimeout(timer); showStatus(e&&e.code==='not_granted' ? 'De sleutel ontbreekt op dit scherm. Vul hem in bij Instellingen.' : 'De kleerkast kon niet geladen worden.'); }
+  db.doc('kledinginfo/kinderen').onSnapshot(function(s){
+    state.kids=(s.exists&&s.data().kids)||[]; loaded.info=true; keepActiveKid(); render();
+  }, fout);
+  db.collection('kleding').onSnapshot(function(s){
+    rebuildCloset(s.docs); loaded.kleding=true; if(!s.metadata.fromCache){ clearTimeout(timer); showStatus(''); }
+    render();
+  }, fout);
+  db.collection('kledingplan').onSnapshot(function(s){
+    var wp={}; s.docs.forEach(function(d){ wp[d.id]=JSON.parse(JSON.stringify(d.data().days||{})); }); state.weekPlan=wp;
+    if(activeView==='week') renderActive();
+  }, function(){});
+}
+
+/* ---------- init ---------- */
+function render(){ renderKids(); renderActive(); }
+function init(){
+  try{ var ui=JSON.parse(sessionStorage.getItem('op-ui')||'null'); if(ui){ if(ui.view) activeView=ui.view; if(ui.kid) activeKidId=ui.kid; if(ui.filter) closetFilter=ui.filter; if(ui.season) seasonFilter=ui.season; if(ui.mode) closetMode=ui.mode; if(ui.manual) manualWx=ui.manual; } }catch(e){}
+  document.querySelectorAll('.tab').forEach(function(t){ t.onclick=function(){ switchView(t.getAttribute('data-view')); saveUi(); }; });
+  $('fab').onclick=function(){ $('bulkInput').click(); };
+  $('bulkInput').onchange=onFiles;
+  renderKids(); switchView(activeView);
+  loadForecast(); setInterval(loadForecast, 3*3600e3);
+  connect();
+}
+init();
+})();
+</script>
+</body>
+</html>
