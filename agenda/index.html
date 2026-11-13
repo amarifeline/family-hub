@@ -37,6 +37,7 @@
           box-shadow: inset 0 0 0 1px var(--lijn); }
   .item::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; border-radius: 10px 0 0 10px; background: var(--k); }
   .item.heel { background: var(--kz); box-shadow: none; }
+  .item .soort { font-family: var(--sans); font-size: 10px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--zacht); margin-right: 6px; }
   .item .uur { font-family: var(--sans); font-size: 12px; font-weight: 500; letter-spacing: .04em; color: var(--zacht); }
   .item .tt { font-family: var(--serif); font-size: 17px; line-height: 1.25; overflow-wrap: anywhere; }
 
@@ -146,7 +147,19 @@
   $('legende').innerHTML = Object.values(MENSEN).map((m) => `<span><i style="background:${m.kleur}"></i>${m.naam}</span>`).join('') +
     `<span><i style="background:${CATEGORIE['6']}"></i>Verjaardag</span><span><i style="background:${CATEGORIE['5']}"></i>Events &amp; feesten</span>`;
 
-  function kleurVan(ev) { return CATEGORIE[ev.kleur] || (MENSEN[ev.kal] || MENSEN.gezin).kleur; }
+  // Zelfde regels als de weekkaarten. Let op: in Féline's eigen agenda komt haar blauwe taakkleur door als colorId 5
+  // (elders is 5 banaan = events & feesten).
+  function soortVan(ev) {
+    const t = (ev.titel || '').trim();
+    if (ev.kleur === '6' || /^verjaardag/i.test(t)) return 'verjaardag';
+    if (ev.kleur === '5') return ev.kal === 'feline' ? 'taak' : 'feest';
+    if (ev.kleur === '10' || /^vrij$/i.test(t)) return 'vrij';
+    if (ev.kleur === '7' || /^to ?do/i.test(t)) return 'taak';
+    return 'afspraak';
+  }
+  const SOORTKLEUR = { verjaardag: CATEGORIE['6'], feest: CATEGORIE['5'] };
+  const SOORTLABEL = { taak: 'Taak', vrij: 'Vrij' };
+  function kleurVan(ev) { return SOORTKLEUR[soortVan(ev)] || (MENSEN[ev.kal] || MENSEN.gezin).kleur; }
 
   function cacheSleutel() { return 'hub.agenda.' + iso(maandag); }
 
@@ -214,6 +227,8 @@
         b.innerHTML = (ev.heleDag ? '' : '<div class="uur"></div>') + '<div class="tt"></div>';
         if (!ev.heleDag) b.querySelector('.uur').textContent = ev.start.slice(11) + ' – ' + ev.einde.slice(11);
         b.querySelector('.tt').textContent = ev.titel || '(zonder titel)';
+        const lab = SOORTLABEL[soortVan(ev)];
+        if (lab && !/^vrij$/i.test((ev.titel || '').trim())) { const s = document.createElement('span'); s.className = 'soort'; s.textContent = lab; b.querySelector('.tt').prepend(s); }
         b.onclick = () => toonDetail(ev);
         lijst.appendChild(b);
       });
