@@ -247,7 +247,7 @@ function persist(){} /* bewaren gebeurt per wijziging, zie hierboven */
 
 /* ---------- foto's: van Google Drive, bewaard op dit toestel ---------- */
 var Fotos = (function(){
-  var urls = {}, wachtrij = {}, bezig = false, idbP = null;
+  var urls = {}, wachtrij = {}, bezig = 0, idbP = null;
   function idb(){
     if(idbP) return idbP;
     idbP = new Promise(function(res){
@@ -261,14 +261,16 @@ var Fotos = (function(){
   function b64blob(b64){ var b=atob(b64),a=new Uint8Array(b.length); for(var i=0;i<b.length;i++) a[i]=b.charCodeAt(i); return new Blob([a],{type:'image/jpeg'}); }
   function zet(id,blob){ if(!urls[id]) urls[id]=URL.createObjectURL(blob); toon(id); }
   function toon(id){ document.querySelectorAll('img[data-foto="'+id+'"]').forEach(function(im){ if(im.getAttribute('src')!==urls[id]) im.src=urls[id]; }); }
+  /* Kleine groepjes, drie tegelijk: de foto's verschijnen geleidelijk. */
   function haal(){
-    if(bezig) return;
-    var ids=Object.keys(wachtrij).slice(0,40); if(!ids.length) return;
-    bezig=true; ids.forEach(function(id){ delete wachtrij[id]; });
-    hubDb.rpc('fotos',{ids:ids}).then(function(r){
-      var f=(r&&r.fotos)||{};
-      Object.keys(f).forEach(function(id){ var b=b64blob(f[id]); schrijf(id,b); zet(id,b); });
-    }).catch(function(){ /* volgende keer opnieuw */ }).then(function(){ bezig=false; if(Object.keys(wachtrij).length) haal(); });
+    while(bezig<3){
+      var ids=Object.keys(wachtrij).filter(function(id){ return wachtrij[id]===1; }).slice(0,10); if(!ids.length) return;
+      bezig++; ids.forEach(function(id){ delete wachtrij[id]; });
+      hubDb.rpc('fotos',{ids:ids}).then(function(r){
+        var f=(r&&r.fotos)||{};
+        Object.keys(f).forEach(function(id){ var b=b64blob(f[id]); schrijf(id,b); zet(id,b); });
+      }).catch(function(){ /* volgende keer opnieuw */ }).then(function(){ bezig--; haal(); });
+    }
   }
   var plan=null;
   function vraag(id){
