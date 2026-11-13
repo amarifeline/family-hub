@@ -269,7 +269,7 @@ var Fotos = (function(){
       (function(ids){
         hubDb.rpc('fotos',{ids:ids}).then(function(r){
           var f=(r&&r.fotos)||{};
-          Object.keys(f).forEach(function(id){ var b=b64blob(f[id]); schrijf(id,b); zet(id,b); });
+          Object.keys(f).forEach(function(id){ if(!f[id]) return; var b=b64blob(f[id]); schrijf(id,b); zet(id,b); });
           bezig--; haal();
         }).catch(function(){
           // Mislukt (bv. even geen verbinding): tot drie keer opnieuw, telkens wat later.
@@ -285,14 +285,14 @@ var Fotos = (function(){
     if(!id || urls[id] || wachtrij[id]===0) return;
     wachtrij[id]=0;
     lees(id).then(function(b){
-      if(b){ delete wachtrij[id]; zet(id,b); return; }
+      if(b && b.size){ delete wachtrij[id]; zet(id,b); return; }
       wachtrij[id]=1; clearTimeout(plan); plan=setTimeout(haal,30);
     });
   }
   return {
     vul:function(root){ (root||document).querySelectorAll('img[data-foto]').forEach(function(im){ var id=im.getAttribute('data-foto'); if(urls[id]) im.src=urls[id]; else vraag(id); }); },
     nieuw:function(id,blob){ schrijf(id,blob); zet(id,blob); },
-    blob:function(id){ return lees(id).then(function(b){ if(b) return b; return hubDb.rpc('fotos',{ids:[id]}).then(function(r){ var x=r&&r.fotos&&r.fotos[id]; if(!x) throw new Error('foto'); var bl=b64blob(x); schrijf(id,bl); return bl; }); }); },
+    blob:function(id){ return lees(id).then(function(b){ if(b && b.size) return b; return hubDb.rpc('fotos',{ids:[id]}).then(function(r){ var x=r&&r.fotos&&r.fotos[id]; if(!x) throw new Error('foto'); var bl=b64blob(x); schrijf(id,bl); return bl; }); }); },
   };
 })();
 /* Een img-tag die zijn foto zelf ophaalt. */
