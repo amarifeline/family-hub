@@ -247,7 +247,7 @@ function persist(){} /* bewaren gebeurt per wijziging, zie hierboven */
 
 /* ---------- foto's: van Google Drive, bewaard op dit toestel ---------- */
 var Fotos = (function(){
-  var urls = {}, wachtrij = {}, bezig = 0, idbP = null;
+  var urls = {}, wachtrij = {}, pogingen = {}, bezig = 0, idbP = null;
   function idb(){
     if(idbP) return idbP;
     idbP = new Promise(function(res){
@@ -266,10 +266,18 @@ var Fotos = (function(){
     while(bezig<3){
       var ids=Object.keys(wachtrij).filter(function(id){ return wachtrij[id]===1; }).slice(0,10); if(!ids.length) return;
       bezig++; ids.forEach(function(id){ delete wachtrij[id]; });
-      hubDb.rpc('fotos',{ids:ids}).then(function(r){
-        var f=(r&&r.fotos)||{};
-        Object.keys(f).forEach(function(id){ var b=b64blob(f[id]); schrijf(id,b); zet(id,b); });
-      }).catch(function(){ /* volgende keer opnieuw */ }).then(function(){ bezig--; haal(); });
+      (function(ids){
+        hubDb.rpc('fotos',{ids:ids}).then(function(r){
+          var f=(r&&r.fotos)||{};
+          Object.keys(f).forEach(function(id){ var b=b64blob(f[id]); schrijf(id,b); zet(id,b); });
+          bezig--; haal();
+        }).catch(function(){
+          // Mislukt (bv. even geen verbinding): tot drie keer opnieuw, telkens wat later.
+          var wacht=0;
+          ids.forEach(function(id){ pogingen[id]=(pogingen[id]||0)+1; if(pogingen[id]<=3){ wachtrij[id]=1; wacht=Math.max(wacht,pogingen[id]*2000); } });
+          bezig--; setTimeout(haal, wacht||0);
+        });
+      })(ids);
     }
   }
   var plan=null;
