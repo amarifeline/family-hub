@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="../shared/huisstijl.css">
 <style>
   body { padding: var(--gutter); display: flex; flex-direction: column; min-height: 100vh; gap: 22px; }
+  [hidden] { display: none !important; }
   input { -webkit-user-select: text; user-select: text; }
   .balk { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
   .titel { flex: 1; min-width: 200px; }
@@ -19,6 +20,18 @@
   .kaart:active { background: var(--room); }
   .kaart .naam { font-family: var(--serif); font-size: 24px; line-height: 1.2; overflow-wrap: anywhere; }
   .meta { font-family: var(--sans); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--zacht); }
+  .filters { display: flex; flex-direction: column; gap: 12px; }
+  .gangen { display: flex; gap: 6px; flex-wrap: wrap; background: var(--wit); border: 1px solid var(--lijn); border-radius: 999px; padding: 5px; align-self: flex-start; }
+  .gangen button { font-family: var(--sans); font-size: 15px; font-weight: 500; color: var(--navy); background: transparent; border: 0; border-radius: 999px; min-height: 48px; padding: 0 22px; cursor: pointer; }
+  .gangen button[aria-pressed="true"] { background: var(--navy); color: var(--wit); }
+  .soorten { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .soorten .label { margin-right: 6px; }
+  .soorten button { font-family: var(--sans); font-size: 14px; color: var(--navy); background: var(--wit); border: 1px solid var(--beige); border-radius: 999px; min-height: 44px; padding: 0 18px; cursor: pointer; }
+  .soorten button[aria-pressed="true"] { background: var(--beige); border-color: var(--beige); font-weight: 500; }
+  .gangen button small, .soorten button small { font-size: 12px; font-weight: 400; opacity: .7; margin-left: 6px; }
+  .groep { display: flex; flex-direction: column; gap: 12px; }
+  .groep + .groep { margin-top: 18px; }
+  .groep h2 { font-family: var(--serif); font-weight: normal; font-size: 28px; margin: 0; }
   .leeg { background: var(--wit); border: 1px solid var(--lijn); border-radius: var(--radius); padding: 40px 24px; text-align: center; font-family: var(--serif); font-size: 20px; color: var(--zacht); grid-column: 1 / -1; }
 
   .detail { display: grid; grid-template-columns: minmax(260px, 1fr) 2fr; gap: 18px; align-items: start; }
@@ -57,6 +70,11 @@
     <div class="knoppen" id="detailKnoppen" hidden><button class="knop vol" id="opMenu">Op het weekmenu</button></div>
   </div>
 
+  <div class="filters" id="filters">
+    <div class="gangen" id="gangen" role="group" aria-label="Categorie"></div>
+    <div class="soorten" id="soorten" role="group" aria-label="Filter"></div>
+  </div>
+
   <main id="inhoud"></main>
   <div class="melding" id="melding"></div>
 
@@ -73,7 +91,9 @@
 <script src="../shared/hub-db.js"></script>
 <script src="../shared/kiosk.js"></script>
 <script>
-  // Recepten: recepten/<id> = { titel, porties, tijd, categorie, ingredienten: [tekst], stappen: [tekst], noot, bron }
+  // Recepten: recepten/<id> = { titel, porties, tijd, gang, soort, ingredienten: [tekst], stappen: [tekst], noot, bron }
+  //   gang:  'Voorgerecht' | 'Hoofdgerecht' | 'Dessert'   (ontbreekt = Hoofdgerecht)
+  //   soort: 'Vlees' | 'Vis' | 'Vegetarisch'             (oude recepten: afgeleid uit 'categorie')
   const $ = (id) => document.getElementById(id);
   const pad = (n) => String(n).padStart(2, '0');
   const iso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
@@ -86,11 +106,50 @@
   let kiesMaandag = maandagVan(new Date());
 
   function huidig() { const id = decodeURIComponent(location.hash.slice(1)); return id ? recepten.find((r) => r.id === id) : null; }
-  function meta(r) { return [r.categorie, r.tijd, r.porties ? r.porties + ' pers.' : ''].filter(Boolean).join(' · '); }
+  const GANGEN = ['Voorgerecht', 'Hoofdgerecht', 'Dessert'];
+  const SOORTEN = ['Vlees', 'Vis', 'Vegetarisch'];
+  function gangVan(r) { const g = GANGEN.find((x) => x.toLowerCase() === String(r.gang || '').trim().toLowerCase()); return g || 'Hoofdgerecht'; }
+  function soortVan(r) {
+    const v = String(r.soort || r.categorie || '').trim().toLowerCase();
+    if (v === 'vlees') return 'Vlees';
+    if (v === 'vis') return 'Vis';
+    if (['vegetarisch', 'veggie', 'vegan', 'plantaardig'].includes(v)) return 'Vegetarisch';
+    return '';
+  }
+  function meta(r, metGang) { return [metGang ? gangVan(r) : '', soortVan(r), r.tijd, r.porties ? r.porties + ' pers.' : ''].filter(Boolean).join(' · '); }
+
+  let kiesGang = 'Alle', kiesSoort = 'Alle';
+
+  function tekenFilters(basis) {
+    const knop = (host, naam, actief, aantal, klik) => {
+      const b = document.createElement('button'); b.type = 'button';
+      b.setAttribute('aria-pressed', String(actief));
+      b.textContent = naam;
+      if (aantal !== null) { const s = document.createElement('small'); s.textContent = aantal; b.appendChild(s); }
+      b.onclick = klik; host.appendChild(b);
+    };
+    const gh = $('gangen'), sh = $('soorten');
+    gh.innerHTML = ''; sh.innerHTML = '';
+    // Aantallen per gang tellen mee met het gekozen soort-filter, en omgekeerd.
+    const perSoort = basis.filter((r) => kiesSoort === 'Alle' || soortVan(r) === kiesSoort);
+    knop(gh, 'Alle', kiesGang === 'Alle', null, () => { kiesGang = 'Alle'; teken(); });
+    GANGEN.forEach((g) => knop(gh, g, kiesGang === g, geladen ? perSoort.filter((r) => gangVan(r) === g).length : null, () => { kiesGang = g; teken(); }));
+    const perGang = basis.filter((r) => kiesGang === 'Alle' || gangVan(r) === kiesGang);
+    const lab = document.createElement('span'); lab.className = 'label'; lab.textContent = 'Toon'; sh.appendChild(lab);
+    knop(sh, 'Alles', kiesSoort === 'Alle', null, () => { kiesSoort = 'Alle'; teken(); });
+    SOORTEN.forEach((s) => knop(sh, s, kiesSoort === s, geladen ? perGang.filter((r) => soortVan(r) === s).length : null, () => { kiesSoort = kiesSoort === s ? 'Alle' : s; teken(); }));
+  }
+
+  function kaartVan(x, metGang) {
+    const b = document.createElement('a'); b.className = 'kaart'; b.href = '#' + encodeURIComponent(x.id); b.style.textDecoration = 'none';
+    b.innerHTML = '<div class="naam"></div><div class="meta"></div>';
+    b.firstChild.textContent = x.titel; b.lastChild.textContent = meta(x, metGang);
+    return b;
+  }
 
   function teken() {
     const r = huidig(), host = $('inhoud');
-    $('zoek').hidden = !!r; $('detailKnoppen').hidden = !r;
+    $('zoek').hidden = !!r; $('detailKnoppen').hidden = !r; $('filters').hidden = !!r;
     $('terug').href = r ? '#' : '../#voeding';
     host.innerHTML = '';
     if (r) {
@@ -99,7 +158,7 @@
       d.innerHTML = `<div class="vak"><h2>Ingrediënten</h2><ul id="ing"></ul></div><div class="vak"><h2>Bereiding</h2><ol id="stap"></ol></div>`;
       const kop = document.createElement('div'); kop.style.cssText = 'grid-column:1/-1';
       kop.innerHTML = '<div style="font-family:var(--serif);font-size:clamp(30px,3vw,44px);line-height:1.15"></div><div class="meta" style="margin-top:8px"></div>';
-      kop.firstChild.textContent = r.titel; kop.lastChild.textContent = meta(r);
+      kop.firstChild.textContent = r.titel; kop.lastChild.textContent = meta(r, true);
       d.prepend(kop);
       lijstVan(r.ingredienten).forEach((x) => { const li = document.createElement('li'); li.textContent = x; d.querySelector('#ing').appendChild(li); });
       lijstVan(r.stappen).forEach((x) => { const li = document.createElement('li'); li.textContent = x; d.querySelector('#stap').appendChild(li); });
@@ -110,17 +169,24 @@
     }
     $('kop').textContent = 'Recepten';
     const q = $('zoek').value.trim().toLowerCase();
-    const zicht = recepten.filter((x) => !q || (x.titel + ' ' + (x.categorie || '') + ' ' + lijstVan(x.ingredienten).join(' ')).toLowerCase().includes(q));
+    const gezocht = recepten.filter((x) => !q || (x.titel + ' ' + gangVan(x) + ' ' + soortVan(x) + ' ' + lijstVan(x.ingredienten).join(' ')).toLowerCase().includes(q));
+    tekenFilters(gezocht);
+    const zicht = gezocht.filter((x) => (kiesGang === 'Alle' || gangVan(x) === kiesGang) && (kiesSoort === 'Alle' || soortVan(x) === kiesSoort));
     $('sub').textContent = geladen ? recepten.length + (recepten.length === 1 ? ' recept' : ' recepten') : 'Laden…';
-    const g = document.createElement('div'); g.className = 'lijst';
-    if (geladen && !zicht.length) g.innerHTML = `<div class="leeg">${recepten.length ? 'Geen recept gevonden.' : 'Nog geen recepten. Stuur ze naar Claude, dan verschijnen ze hier.'}</div>`;
-    zicht.forEach((x) => {
-      const b = document.createElement('a'); b.className = 'kaart'; b.href = '#' + encodeURIComponent(x.id); b.style.textDecoration = 'none';
-      b.innerHTML = '<div class="naam"></div><div class="meta"></div>';
-      b.firstChild.textContent = x.titel; b.lastChild.textContent = meta(x);
-      g.appendChild(b);
+    if (geladen && !zicht.length) {
+      const g = document.createElement('div'); g.className = 'lijst';
+      g.innerHTML = `<div class="leeg">${recepten.length ? 'Geen recept gevonden.' : 'Nog geen recepten. Stuur ze naar Claude, dan verschijnen ze hier.'}</div>`;
+      host.appendChild(g); return;
+    }
+    // Bij 'Alle' per gang groeperen, anders één lijst.
+    const groepen = kiesGang === 'Alle' ? GANGEN.map((n) => [n, zicht.filter((x) => gangVan(x) === n)]).filter((x) => x[1].length) : [[null, zicht]];
+    groepen.forEach(([naam, items]) => {
+      const w = document.createElement('section'); w.className = 'groep';
+      if (naam) { const h = document.createElement('h2'); h.textContent = naam; w.appendChild(h); }
+      const g = document.createElement('div'); g.className = 'lijst';
+      items.forEach((x) => g.appendChild(kaartVan(x, false)));
+      w.appendChild(g); host.appendChild(w);
     });
-    host.appendChild(g);
   }
 
   // Op het weekmenu zetten
