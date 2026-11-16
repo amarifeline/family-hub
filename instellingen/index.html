@@ -22,6 +22,14 @@
   }
   #log { font-family: var(--sans); font-size: 14px; margin: 16px 0 0; padding: 0; list-style: none; }
   #log li { padding: 6px 0; border-top: 1px solid var(--lijn); }
+  .personen { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 18px; margin-top: 16px; }
+  .pers { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .pers .rond { width: 96px; height: 96px; border-radius: 50%; display: grid; place-items: center; font-family: var(--script); font-size: 48px; padding-top: 6px; background-size: cover; background-position: center; }
+  .pers .rond.foto { padding-top: 0; color: transparent !important; }
+  .pers .knoppen { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+  .pers .knop { min-height: 40px; font-size: 13px; }
+  .pers input[type=file] { display: none; }
+  .uitleg { font-family: var(--serif); font-size: 16px; margin: 8px 0 0; color: var(--zacht); }
   @media (max-width: 520px) { dl { grid-template-columns: 1fr; gap: 4px; } dd { margin-bottom: 10px; } }
 </style>
 </head>
@@ -46,6 +54,13 @@
   </section>
 
   <section>
+    <div class="label">Foto's in de agenda</div>
+    <p class="uitleg">Kies per persoon een foto. Het midden van de foto komt in het rondje; een vierkante foto met het gezicht in het midden werkt het best. De foto wordt verkleind en privé in jullie Google Sheet bewaard.</p>
+    <div class="personen" id="personen"></div>
+    <div class="melding" id="fotoMelding" style="margin-top:12px;font-family:var(--sans);font-size:13px;color:var(--zacht)"></div>
+  </section>
+
+  <section>
     <div class="label">Opslag testen</div>
     <div class="rij">
       <button class="knop vol" id="test">Test schrijven en lezen</button>
@@ -57,6 +72,55 @@
 <script src="../shared/config.js"></script>
 <script src="../shared/hub-db.js"></script>
 <script src="../shared/kiosk.js"></script>
+<script>
+  // Foto's per persoon (collectie "personen", één document per persoon met een kleine jpeg als data-URL).
+  (async () => {
+    const MENSEN = { feline: ['Féline', '#B29B89'], aaron: ['Aaron', '#2B5374'], mila: ['Mila', '#FFD5DC'], finn: ['Finn', '#C7E6FD'], gezin: ['Gezin', '#8F9EAA'] };
+    const tekstOp = (hex) => { const n = parseInt(hex.slice(1), 16); return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 > 0.62 ? '#2C3E52' : '#FFFFFF'; };
+    const host = document.getElementById('personen'), meld = document.getElementById('fotoMelding');
+    let fotos = {};
+    host.innerHTML = Object.entries(MENSEN).map(([k, [naam, kl]]) => `<div class="pers" data-k="${k}">
+      <div class="rond" style="background-color:${kl};color:${tekstOp(kl)}">${naam.charAt(0)}</div>
+      <div class="label">${naam}</div>
+      <div class="knoppen"><label class="knop">Kies foto<input type="file" accept="image/*"></label><button class="knop" data-weg hidden>Weg</button></div></div>`).join('');
+    function toon() {
+      host.querySelectorAll('.pers').forEach((el) => {
+        const f = fotos[el.dataset.k], r = el.querySelector('.rond');
+        r.classList.toggle('foto', !!f); r.style.backgroundImage = f ? `url("${f}")` : '';
+        el.querySelector('[data-weg]').hidden = !f;
+      });
+    }
+    function verklein(file) {
+      return new Promise((ok, fout) => {
+        const url = URL.createObjectURL(file), img = new Image();
+        img.onload = () => {
+          const z = 240, c = document.createElement('canvas'); c.width = c.height = z;
+          const s = Math.min(img.naturalWidth, img.naturalHeight);
+          c.getContext('2d').drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2, s, s, 0, 0, z, z);
+          URL.revokeObjectURL(url); ok(c.toDataURL('image/jpeg', 0.82));
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); fout(new Error('Deze foto kan niet gelezen worden.')); };
+        img.src = url;
+      });
+    }
+    const db = await claude.use('db');
+    if (!db) { meld.textContent = 'De opslag is niet bereikbaar.'; return; }
+    db.collection('personen').onSnapshot((snap) => { fotos = {}; snap.docs.forEach((d) => { fotos[d.id] = (d.data() || {}).foto; }); toon(); }, () => {});
+    host.addEventListener('change', async (e) => {
+      const inp = e.target; if (!inp.files || !inp.files[0]) return;
+      const k = inp.closest('.pers').dataset.k;
+      meld.textContent = 'Foto bewaren…';
+      try { const d = await verklein(inp.files[0]); fotos[k] = d; toon(); await db.doc('personen/' + k).set({ foto: d }); meld.textContent = 'Bewaard.'; }
+      catch (err) { meld.textContent = err.message || 'Bewaren lukte niet.'; }
+      inp.value = '';
+    });
+    host.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-weg]'); if (!b) return;
+      const k = b.closest('.pers').dataset.k; delete fotos[k]; toon();
+      try { await db.doc('personen/' + k).delete(); meld.textContent = 'Foto weggehaald.'; } catch (err) { meld.textContent = 'Weghalen lukte niet.'; }
+    });
+  })();
+</script>
 <script>
   const $ = (id) => document.getElementById(id);
   const proef = hubDb.mode === 'proef';

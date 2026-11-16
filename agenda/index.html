@@ -66,7 +66,8 @@
   .dv-rij { display: grid; grid-template-columns: var(--g) repeat(var(--n), minmax(0, 1fr)); }
   .dv-kop { border-bottom: 1px solid var(--lijn); padding: 14px 0 12px; }
   .persoon { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-  .avatar { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; font-family: var(--script); font-size: 30px; line-height: 1; padding-top: 4px; }
+  .avatar.foto { background-size: cover; background-position: center; color: transparent !important; }
+  .avatar { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; font-family: var(--script); font-size: 30px; line-height: 1; padding-top: 4px; }
   .persoon .label { color: var(--navy); }
   .dv-heel { border-bottom: 1px solid var(--lijn); }
   .dv-heel > div { padding: 6px; display: flex; flex-direction: column; gap: 4px; border-left: 1px solid var(--lijn); min-height: 12px; }
@@ -184,6 +185,18 @@
   try { modus = localStorage.getItem('hub.agenda.modus') || 'dag'; } catch (e) {}
   const KOLOMMEN = ['feline', 'aaron', 'mila', 'finn', 'gezin'];
   function tekstOp(hex) { const n = parseInt(hex.slice(1), 16); const l = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255; return l > 0.62 ? '#2C3E52' : '#FFFFFF'; }
+  // Foto's per persoon (ingesteld via Instellingen)
+  let FOTOS = {};
+  try { FOTOS = JSON.parse(localStorage.getItem('hub.personen') || '{}'); } catch (e) {}
+  claude.use('db').then((db) => {
+    if (!db) return;
+    db.collection('personen').onSnapshot((snap) => {
+      const n = {}; snap.docs.forEach((d) => { const f = (d.data() || {}).foto; if (typeof f === 'string' && f.startsWith('data:image/')) n[d.id] = f; });
+      if (JSON.stringify(n) === JSON.stringify(FOTOS)) return;
+      FOTOS = n; try { localStorage.setItem('hub.personen', JSON.stringify(n)); } catch (e) {}
+      if (modus === 'dag') teken();
+    }, () => {});
+  });
   const minVan = (t) => +t.slice(11, 13) * 60 + +t.slice(14, 16);
   let events = [];
   let laadNr = 0;
@@ -264,7 +277,7 @@
 
     const v = $('dagview');
     v.style.setProperty('--n', KOLOMMEN.length);
-    const kop = KOLOMMEN.map((k) => { const m = MENSEN[k]; return `<div class="persoon"><div class="avatar" style="background:${m.kleur};color:${tekstOp(m.kleur)}">${m.naam.charAt(0)}</div><div class="label">${m.naam}</div></div>`; }).join('');
+    const kop = KOLOMMEN.map((k) => { const m = MENSEN[k], f = FOTOS[k]; return `<div class="persoon"><div class="avatar${f ? ' foto' : ''}" style="background-color:${m.kleur};color:${tekstOp(m.kleur)};${f ? `background-image:url('${f}');box-shadow:0 0 0 3px ${m.kleur}` : ''}">${m.naam.charAt(0)}</div><div class="label">${m.naam}</div></div>`; }).join('');
     v.innerHTML = `<div class="dv-rij dv-kop"><div class="gutter"></div>${kop}</div>
       <div class="dv-rij dv-heel"><div class="gutter">Hele dag</div>${KOLOMMEN.map((k) => `<div data-heel="${k}"></div>`).join('')}</div>
       <div class="dv-scroll"><div class="dv-raster" style="height:${(totU - vanU) * UURHOOGTE + 8}px"></div></div>`;
