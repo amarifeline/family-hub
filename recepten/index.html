@@ -18,6 +18,11 @@
   .lijst { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 14px; }
   .kaart { background: var(--wit); border: 1px solid var(--lijn); border-radius: var(--radius); padding: 20px; min-height: 130px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; text-align: left; cursor: pointer; color: var(--navy); font: inherit; }
   .kaart:active { background: var(--room); }
+  .kaart.met-foto { display: grid; grid-template-columns: 104px 1fr; align-items: stretch; gap: 16px; padding: 14px 18px 14px 14px; }
+  .kaart .tekst { flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; padding: 6px 0; min-width: 0; }
+  .duim { width: 104px; height: 104px; border-radius: 12px; object-fit: cover; background: var(--room); display: block; align-self: center; }
+  .kop-recept { grid-column: 1 / -1; display: flex; gap: 24px; align-items: center; }
+  .kop-recept img { width: clamp(180px, 22vw, 320px); aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius); background: var(--wit); border: 1px solid var(--lijn); flex: none; }
   .kaart .naam { font-family: var(--serif); font-size: 24px; line-height: 1.2; overflow-wrap: anywhere; }
   .meta { font-family: var(--sans); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--zacht); }
   .filters { display: flex; flex-direction: column; gap: 12px; }
@@ -56,7 +61,7 @@
   .dagen button small { display: block; font-size: 11px; color: var(--zacht); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .acties { display: flex; justify-content: space-between; gap: 10px; margin-top: 20px; flex-wrap: wrap; align-items: center; }
 
-  @media (max-width: 800px) { .detail { grid-template-columns: 1fr; } }
+  @media (max-width: 800px) { .detail { grid-template-columns: 1fr; } .kop-recept { flex-direction: column; align-items: flex-start; } }
 </style>
 </head>
 <body data-home="../" data-terug="10">
@@ -91,7 +96,57 @@
 <script src="../shared/hub-db.js"></script>
 <script src="../shared/kiosk.js"></script>
 <script>
-  // Recepten: recepten/<id> = { titel, porties, tijd, gang, soort, ingredienten: [tekst], stappen: [tekst], noot, bron }
+  // Foto's staan in Google Drive (map 'Family hub – kleding') en worden op dit toestel bewaard.
+  const hubDb = window.hubDb;
+  var Fotos = (function(){
+    var urls = {}, wachtrij = {}, pogingen = {}, bezig = 0, idbP = null;
+    function idb(){
+      if(idbP) return idbP;
+      idbP = new Promise(function(res){
+        try{ var r=indexedDB.open('hub-recepten',1); r.onupgradeneeded=function(){ r.result.createObjectStore('fotos'); }; r.onsuccess=function(){ res(r.result); }; r.onerror=function(){ res(null); }; }
+        catch(e){ res(null); }
+      });
+      return idbP;
+    }
+    function lees(id){ return idb().then(function(d){ if(!d) return null; return new Promise(function(res){ try{ var q=d.transaction('fotos').objectStore('fotos').get(id); q.onsuccess=function(){ res(q.result||null); }; q.onerror=function(){ res(null); }; }catch(e){ res(null); } }); }); }
+    function schrijf(id,blob){ return idb().then(function(d){ if(!d) return; try{ d.transaction('fotos','readwrite').objectStore('fotos').put(blob,id); }catch(e){} }); }
+    function b64blob(b64){ var b=atob(b64),a=new Uint8Array(b.length); for(var i=0;i<b.length;i++) a[i]=b.charCodeAt(i); return new Blob([a],{type:'image/jpeg'}); }
+    function zet(id,blob){ if(!urls[id]) urls[id]=URL.createObjectURL(blob); toon(id); }
+    function toon(id){ document.querySelectorAll('img[data-foto="'+id+'"]').forEach(function(im){ if(im.getAttribute('src')!==urls[id]) im.src=urls[id]; }); }
+    /* Kleine groepjes, drie tegelijk: de foto's verschijnen geleidelijk. */
+    function haal(){
+      while(bezig<3){
+        var ids=Object.keys(wachtrij).filter(function(id){ return wachtrij[id]===1; }).slice(0,10); if(!ids.length) return;
+        bezig++; ids.forEach(function(id){ delete wachtrij[id]; });
+        (function(ids){
+          hubDb.rpc('fotos',{ids:ids}).then(function(r){
+            var f=(r&&r.fotos)||{};
+            Object.keys(f).forEach(function(id){ if(!f[id]) return; var b=b64blob(f[id]); schrijf(id,b); zet(id,b); });
+            bezig--; haal();
+          }).catch(function(){
+            // Mislukt (bv. even geen verbinding): tot drie keer opnieuw, telkens wat later.
+            var wacht=0;
+            ids.forEach(function(id){ pogingen[id]=(pogingen[id]||0)+1; if(pogingen[id]<=3){ wachtrij[id]=1; wacht=Math.max(wacht,pogingen[id]*2000); } });
+            bezig--; setTimeout(haal, wacht||0);
+          });
+        })(ids);
+      }
+    }
+    var plan=null;
+    function vraag(id){
+      if(!id || urls[id] || wachtrij[id]===0) return;
+      wachtrij[id]=0;
+      lees(id).then(function(b){
+        if(b && b.size){ delete wachtrij[id]; zet(id,b); return; }
+        wachtrij[id]=1; clearTimeout(plan); plan=setTimeout(haal,30);
+      });
+    }
+    return {
+      vul:function(root){ (root||document).querySelectorAll('img[data-foto]').forEach(function(im){ var id=im.getAttribute('data-foto'); if(urls[id]) im.src=urls[id]; else vraag(id); }); },
+    };
+  })();
+
+  // Recepten: recepten/<id> = { foto (Drive-id), titel, porties, tijd, gang, soort, ingredienten: [tekst], stappen: [tekst], noot, bron }
   //   gang:  'Voorgerecht' | 'Hoofdgerecht' | 'Dessert'   (ontbreekt = Hoofdgerecht)
   //   soort: 'Vlees' | 'Vis' | 'Vegetarisch'             (oude recepten: afgeleid uit 'categorie')
   const $ = (id) => document.getElementById(id);
@@ -142,8 +197,9 @@
 
   function kaartVan(x, metGang) {
     const b = document.createElement('a'); b.className = 'kaart'; b.href = '#' + encodeURIComponent(x.id); b.style.textDecoration = 'none';
-    b.innerHTML = '<div class="naam"></div><div class="meta"></div>';
-    b.firstChild.textContent = x.titel; b.lastChild.textContent = meta(x, metGang);
+    b.innerHTML = '<div class="tekst"><div class="naam"></div><div class="meta"></div></div>';
+    b.querySelector('.naam').textContent = x.titel; b.querySelector('.meta').textContent = meta(x, metGang);
+    if (x.foto) { b.classList.add('met-foto'); const im = document.createElement('img'); im.className = 'duim'; im.dataset.foto = x.foto; im.alt = ''; b.prepend(im); }
     return b;
   }
 
@@ -156,14 +212,16 @@
       $('kop').textContent = 'Recepten'; $('sub').textContent = '';
       const d = document.createElement('div'); d.className = 'detail';
       d.innerHTML = `<div class="vak"><h2>Ingrediënten</h2><ul id="ing"></ul></div><div class="vak"><h2>Bereiding</h2><ol id="stap"></ol></div>`;
-      const kop = document.createElement('div'); kop.style.cssText = 'grid-column:1/-1';
-      kop.innerHTML = '<div style="font-family:var(--serif);font-size:clamp(30px,3vw,44px);line-height:1.15"></div><div class="meta" style="margin-top:8px"></div>';
-      kop.firstChild.textContent = r.titel; kop.lastChild.textContent = meta(r, true);
+      const kop = document.createElement('div'); kop.className = 'kop-recept';
+      kop.innerHTML = '<div><div class="rtitel" style="font-family:var(--serif);font-size:clamp(30px,3vw,44px);line-height:1.15"></div><div class="meta" style="margin-top:8px"></div></div>';
+      kop.querySelector('.rtitel').textContent = r.titel; kop.querySelector('.meta').textContent = meta(r, true);
+      if (r.foto) { const im = document.createElement('img'); im.dataset.foto = r.foto; im.alt = r.titel; kop.prepend(im); }
       d.prepend(kop);
       lijstVan(r.ingredienten).forEach((x) => { const li = document.createElement('li'); li.textContent = x; d.querySelector('#ing').appendChild(li); });
       lijstVan(r.stappen).forEach((x) => { const li = document.createElement('li'); li.textContent = x; d.querySelector('#stap').appendChild(li); });
       if (r.noot) { const p = document.createElement('p'); p.className = 'noot'; p.textContent = r.noot; d.querySelector('#stap').after(p); }
       host.appendChild(d);
+      Fotos.vul(host);
       window.scrollTo(0, 0);
       return;
     }
@@ -187,6 +245,7 @@
       items.forEach((x) => g.appendChild(kaartVan(x, false)));
       w.appendChild(g); host.appendChild(w);
     });
+    Fotos.vul(host);
   }
 
   // Op het weekmenu zetten
