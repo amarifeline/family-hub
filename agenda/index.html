@@ -86,6 +86,19 @@
   .wkdag.nu .datumrond { background: var(--navy); color: var(--wit); }
   .wkdag.voorbij { opacity: .5; }
   .wkdag .feestje { font-family: var(--sans); font-size: 10px; color: var(--zacht); text-align: center; padding: 0 4px; line-height: 1.2; }
+  .wk-rijen { display: flex; flex-direction: column; }
+  .wk-rij { border-bottom: 1px solid var(--lijn); flex: 1 0 92px; }
+  .wk-rij:last-child { border-bottom: 0; }
+  .wk-rij.nu { background: rgba(225, 207, 185, .22); }
+  .wk-rij.voorbij .wk-dag, .wk-rij.voorbij .wk-cel { opacity: .55; }
+  .wk-dag { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 8px 2px; }
+  .wk-dag .datumrond { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-family: var(--sans); font-weight: 300; font-size: 22px; color: var(--navy); }
+  .wk-rij.nu .datumrond { background: var(--navy); color: var(--wit); }
+  .wk-dag .feestje { font-family: var(--sans); font-size: 9px; color: var(--zacht); text-align: center; line-height: 1.2; }
+  .wk-cel { border-left: 1px solid var(--lijn); padding: 6px; display: flex; flex-direction: column; gap: 5px; cursor: pointer; min-width: 0; }
+  .wk-item { white-space: normal; display: flex; flex-direction: column; gap: 1px; padding: 6px 9px; }
+  .wk-item .wk-uur { font-size: 11px; font-weight: 400; opacity: .85; }
+  .wk-item .wk-tt { font-size: 13px; line-height: 1.25; overflow-wrap: break-word; hyphens: auto; }
   .dv-kol.vandaag { background: rgba(225, 207, 185, .18); }
   .nulijn { position: absolute; left: 60px; right: 0; height: 2px; background: #C9483B; z-index: 3; pointer-events: none; }
   .nulijn::before { content: attr(data-t); position: absolute; left: -58px; top: -10px; background: #C9483B; color: #fff; font-family: var(--sans); font-size: 11px; font-weight: 500; padding: 2px 6px; border-radius: 6px; }
@@ -96,6 +109,7 @@
     .week { grid-template-columns: 1fr; }
     .dagview { flex: none; height: 80vh; }
     .dagview { --g: 44px; }
+    .wk-dag .datumrond { width: 32px; height: 32px; font-size: 16px; } .wk-item { padding: 4px 5px; } .wk-item .wk-uur { display: none; } .wk-item .wk-tt { font-size: 11px; }
     .blok { padding: 4px; } .blok .tt { font-size: 12px; overflow-wrap: normal; } .blok .uur { display: none; }
     .dv-uur span { width: 40px; font-size: 11px; }
     .nulijn { left: 40px; } .nulijn::before { display: none; }
@@ -369,23 +383,54 @@
     }));
   }
 
+  // Week: een rij per dag, een kolom per persoon (zelfde kop als de dagweergave).
+  function kopPersonen() {
+    return KOLOMMEN.map((k) => {
+      const m = MENSEN[k], f = FOTOS[k];
+      return `<div class="persoon"><div class="avatar${f ? ' foto' : ''}" style="background-color:${m.kleur};color:${tekstOp(m.kleur)};${f ? `background-image:url('${f}');box-shadow:0 0 0 3px ${m.kleur}` : ''}">${m.naam.charAt(0)}</div><div class="label">${m.naam}</div></div>`;
+    }).join('');
+  }
   function tekenWeek() {
     const vandaag = iso(new Date()), zondag = plusDagen(maandag, 6);
     const fmt = (d, o) => d.toLocaleDateString('nl-BE', o);
     $('weeklabel').textContent = maandag.getMonth() === zondag.getMonth()
       ? `${maandag.getDate()} – ${fmt(zondag, { day: 'numeric', month: 'long' })}`
       : `${fmt(maandag, { day: 'numeric', month: 'long' })} – ${fmt(zondag, { day: 'numeric', month: 'long' })}`;
-    const esc = (t) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-    const kols = [];
+    const v = $('dagview');
+    v.style.setProperty('--n', KOLOMMEN.length);
+    v.innerHTML = `<div class="dv-rij dv-kop wk-kop"><div class="gutter"></div>${kopPersonen()}</div><div class="dv-scroll wk-rijen"></div>`;
+    const host = v.querySelector('.wk-rijen');
+    let vandaagRij = null;
     for (let i = 0; i < 7; i++) {
       const d = plusDagen(maandag, i), dag = iso(d);
-      const feest = events.filter((ev) => ev.kal === 'feestdagen' && opDag(ev, dag)).map((ev) => ev.titel).join(' · ');
-      kols.push({
-        dag, isDag: true, van: () => true,
-        kop: `<div class="persoon wkdag${dag === vandaag ? ' nu' : ''}${dag < vandaag ? ' voorbij' : ''}"><div class="label">${DAGNAMEN[i].slice(0, 2)}</div><div class="datumrond">${d.getDate()}</div>${feest ? `<div class="feestje">${esc(feest)}</div>` : ''}</div>`,
+      const vanDag = events.filter(dagFilter(dag));
+      const feest = vanDag.filter((ev) => ev.kal === 'feestdagen').map((ev) => ev.titel).join(' · ');
+      const rij = document.createElement('div');
+      rij.className = 'dv-rij wk-rij' + (dag === vandaag ? ' nu' : '') + (dag < vandaag ? ' voorbij' : '');
+      rij.innerHTML = `<div class="wk-dag"><div class="label">${DAGNAMEN[i].slice(0, 2)}</div><div class="datumrond">${d.getDate()}</div><div class="feestje"></div></div>` +
+        KOLOMMEN.map((k) => `<div class="wk-cel" data-k="${k}"></div>`).join('');
+      rij.querySelector('.feestje').textContent = feest;
+      KOLOMMEN.forEach((k) => {
+        const cel = rij.querySelector(`[data-k="${k}"]`);
+        cel.onclick = (e) => { if (e.target === cel) openNieuw(dag, k); };
+        vanDag.filter((ev) => ev.kal !== 'feestdagen' && (MENSEN[ev.kal] ? ev.kal : 'gezin') === k)
+          .sort((a, b) => (b.heleDag - a.heleDag) || (a.heleDag ? 0 : a.start.localeCompare(b.start)) || a.titel.localeCompare(b.titel))
+          .forEach((ev) => {
+            const kl = kleurVan(ev), b = document.createElement('button');
+            b.type = 'button'; b.className = 'chip wk-item';
+            b.style.setProperty('--k', kl); b.style.setProperty('--t', tekstOp(kl));
+            b.innerHTML = (ev.heleDag ? '' : '<span class="wk-uur"></span>') + '<span class="wk-tt"></span>';
+            if (!ev.heleDag) b.querySelector('.wk-uur').textContent = (ev.start.slice(0, 10) < dag ? '00:00' : ev.start.slice(11)) + ' – ' + (ev.einde.slice(0, 10) > dag ? '24:00' : ev.einde.slice(11));
+            b.querySelector('.wk-tt').textContent = ev.titel || '(zonder titel)';
+            b.onclick = () => toonDetail(ev);
+            cel.appendChild(b);
+          });
       });
+      if (dag === vandaag) vandaagRij = rij;
+      host.appendChild(rij);
     }
-    tekenRaster(kols);
+    if (eersteKeer && vandaagRij) host.scrollTop = Math.max(0, vandaagRij.offsetTop - host.offsetTop - 8);
+    eersteKeer = false;
   }
 
   // Detail
