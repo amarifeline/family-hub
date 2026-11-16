@@ -57,9 +57,43 @@
   .acties { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
   .detail p { font-family: var(--serif); font-size: 19px; margin: 0 0 10px; }
 
+  .wissel { display: flex; border: 1px solid var(--beige); border-radius: 999px; padding: 3px; background: var(--wit); }
+  .wissel button { border: 0; background: transparent; color: var(--navy); font-family: var(--sans); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; border-radius: 999px; min-height: 42px; padding: 0 18px; cursor: pointer; }
+  .wissel button[aria-pressed="true"] { background: var(--navy); color: var(--wit); }
+
+  /* Dagweergave: een kolom per persoon */
+  .dagview { --g: 64px; flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--wit); border: 1px solid var(--lijn); border-radius: var(--radius); overflow: hidden; }
+  .dv-rij { display: grid; grid-template-columns: var(--g) repeat(var(--n), minmax(0, 1fr)); }
+  .dv-kop { border-bottom: 1px solid var(--lijn); padding: 14px 0 12px; }
+  .persoon { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .avatar { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; font-family: var(--script); font-size: 30px; line-height: 1; padding-top: 4px; }
+  .persoon .label { color: var(--navy); }
+  .dv-heel { border-bottom: 1px solid var(--lijn); }
+  .dv-heel > div { padding: 6px; display: flex; flex-direction: column; gap: 4px; border-left: 1px solid var(--lijn); min-height: 12px; }
+  .dv-heel .gutter, .dv-kop .gutter { border-left: 0; font-family: var(--sans); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--zacht); display: flex; align-items: center; justify-content: center; text-align: center; }
+  .chip { border: 0; border-radius: 8px; padding: 6px 8px; text-align: left; font-family: var(--sans); font-size: 13px; font-weight: 500; cursor: pointer; background: var(--k); color: var(--t); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dv-scroll { flex: 1; min-height: 0; overflow-y: auto; position: relative; }
+  .dv-raster { position: relative; }
+  .dv-uur { position: absolute; left: 0; right: 0; border-top: 1px solid var(--lijn); }
+  .dv-uur span { position: absolute; left: 0; width: 56px; top: -9px; text-align: right; font-family: var(--sans); font-size: 12px; color: var(--zacht); background: var(--wit); padding-right: 4px; }
+  .dv-uur:first-child span { top: 2px; }
+  .dv-kol { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--lijn); cursor: pointer; }
+  .blok { position: absolute; display: flex; flex-direction: column; justify-content: flex-start; border: 0; border-radius: 10px; padding: 6px 8px; text-align: left; cursor: pointer; overflow: hidden; background: var(--k); color: var(--t); box-shadow: 0 0 0 2px var(--wit); font: inherit; }
+  .blok .tt { font-family: var(--sans); font-size: 14px; font-weight: 500; line-height: 1.2; overflow-wrap: anywhere; }
+  .blok .uur { font-family: var(--sans); font-size: 12px; opacity: .85; margin-top: 2px; }
+  .nulijn { position: absolute; left: 60px; right: 0; height: 2px; background: #C9483B; z-index: 3; pointer-events: none; }
+  .nulijn::before { content: attr(data-t); position: absolute; left: -58px; top: -10px; background: #C9483B; color: #fff; font-family: var(--sans); font-size: 11px; font-weight: 500; padding: 2px 6px; border-radius: 6px; }
+  [hidden] { display: none !important; }
+
   @media (max-width: 900px) {
     body { height: auto; }
     .week { grid-template-columns: 1fr; }
+    .dagview { flex: none; height: 80vh; }
+    .dagview { --g: 44px; }
+    .blok { padding: 4px; } .blok .tt { font-size: 12px; overflow-wrap: normal; } .blok .uur { display: none; }
+    .dv-uur span { width: 40px; font-size: 11px; }
+    .nulijn { left: 40px; } .nulijn::before { display: none; }
+    .avatar { width: 36px; height: 36px; font-size: 20px; }
     .lijst { overflow: visible; }
   }
 </style>
@@ -71,16 +105,21 @@
       <h1>Gezinsagenda</h1>
       <div class="label" id="weeklabel"></div>
     </div>
+    <div class="wissel" role="group" aria-label="Weergave">
+      <button type="button" id="wDag" aria-pressed="true">Dag</button>
+      <button type="button" id="wWeek" aria-pressed="false">Week</button>
+    </div>
     <div class="nav">
-      <button class="knop rond" id="vorige" aria-label="Vorige week">‹</button>
+      <button class="knop rond" id="vorige" aria-label="Vorige">‹</button>
       <button class="knop" id="nu">Vandaag</button>
-      <button class="knop rond" id="volgende" aria-label="Volgende week">›</button>
+      <button class="knop rond" id="volgende" aria-label="Volgende">›</button>
     </div>
     <button class="knop vol" id="nieuw">+ Afspraak</button>
   </div>
 
   <div class="legende label" id="legende"></div>
-  <main class="week" id="week"></main>
+  <main class="week" id="week" hidden></main>
+  <main class="dagview" id="dagview"></main>
   <div class="melding" id="melding"></div>
 
   <dialog id="dlgNieuw">
@@ -140,6 +179,12 @@
   function tint(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; }
 
   let maandag = maandagVan(new Date());
+  let dagSel = new Date(); dagSel.setHours(12, 0, 0, 0);
+  let modus = 'dag';
+  try { modus = localStorage.getItem('hub.agenda.modus') || 'dag'; } catch (e) {}
+  const KOLOMMEN = ['feline', 'aaron', 'mila', 'finn', 'gezin'];
+  function tekstOp(hex) { const n = parseInt(hex.slice(1), 16); const l = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255; return l > 0.62 ? '#2C3E52' : '#FFFFFF'; }
+  const minVan = (t) => +t.slice(11, 13) * 60 + +t.slice(14, 16);
   let events = [];
   let laadNr = 0;
 
@@ -193,6 +238,107 @@
   }
 
   function teken() {
+    $('week').hidden = modus !== 'week';
+    $('dagview').hidden = modus !== 'dag';
+    $('wDag').setAttribute('aria-pressed', modus === 'dag');
+    $('wWeek').setAttribute('aria-pressed', modus === 'week');
+    if (modus === 'dag') tekenDag(); else tekenWeek();
+  }
+
+  const UURHOOGTE = 64;
+  let eersteKeer = true;
+  function tekenDag() {
+    const dag = iso(dagSel), vandaag = iso(new Date());
+    const vanDag = events.filter((ev) => ev.heleDag ? opDag(ev, dag) : (ev.start.slice(0, 10) <= dag && ev.einde.slice(0, 10) >= dag && !(ev.einde.slice(0, 10) === dag && ev.einde.slice(11) === '00:00')));
+    const feest = vanDag.filter((ev) => ev.kal === 'feestdagen').map((ev) => ev.titel);
+    let label = dagSel.toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' });
+    label = label.charAt(0).toUpperCase() + label.slice(1);
+    $('weeklabel').textContent = label + (dag === vandaag ? ' · vandaag' : '') + (feest.length ? ' · ' + feest.join(' · ') : '');
+
+    const begin = (ev) => ev.start.slice(0, 10) < dag ? 0 : minVan(ev.start);
+    const einde = (ev) => ev.einde.slice(0, 10) > dag ? 1440 : Math.max(minVan(ev.einde), begin(ev) + 15);
+    const getimed = vanDag.filter((ev) => !ev.heleDag && ev.kal !== 'feestdagen');
+    let vanU = 7, totU = 22;
+    getimed.forEach((ev) => { vanU = Math.min(vanU, Math.floor(begin(ev) / 60)); totU = Math.max(totU, Math.ceil(einde(ev) / 60)); });
+    totU = Math.min(totU, 24);
+
+    const v = $('dagview');
+    v.style.setProperty('--n', KOLOMMEN.length);
+    const kop = KOLOMMEN.map((k) => { const m = MENSEN[k]; return `<div class="persoon"><div class="avatar" style="background:${m.kleur};color:${tekstOp(m.kleur)}">${m.naam.charAt(0)}</div><div class="label">${m.naam}</div></div>`; }).join('');
+    v.innerHTML = `<div class="dv-rij dv-kop"><div class="gutter"></div>${kop}</div>
+      <div class="dv-rij dv-heel"><div class="gutter">Hele dag</div>${KOLOMMEN.map((k) => `<div data-heel="${k}"></div>`).join('')}</div>
+      <div class="dv-scroll"><div class="dv-raster" style="height:${(totU - vanU) * UURHOOGTE + 8}px"></div></div>`;
+
+    vanDag.filter((ev) => ev.heleDag && ev.kal !== 'feestdagen').forEach((ev) => {
+      const host = v.querySelector(`[data-heel="${ev.kal}"]`) || v.querySelector('[data-heel="gezin"]');
+      const k = kleurVan(ev);
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip';
+      b.style.setProperty('--k', k); b.style.setProperty('--t', tekstOp(k));
+      b.textContent = ev.titel || '(zonder titel)';
+      b.onclick = () => toonDetail(ev);
+      host.appendChild(b);
+    });
+
+    const raster = v.querySelector('.dv-raster');
+    for (let u = vanU; u <= totU; u++) {
+      const l = document.createElement('div'); l.className = 'dv-uur'; l.style.top = ((u - vanU) * UURHOOGTE) + 'px';
+      if (u < totU) l.innerHTML = `<span>${pad(u)}:00</span>`;
+      raster.appendChild(l);
+    }
+    const breedte = `calc((100% - var(--g)) / ${KOLOMMEN.length})`;
+    KOLOMMEN.forEach((k, i) => {
+      const kol = document.createElement('div');
+      kol.className = 'dv-kol';
+      kol.style.left = `calc(var(--g) + ${breedte} * ${i})`; kol.style.width = breedte;
+      kol.onclick = (e) => {
+        if (e.target !== kol) return;
+        const u = Math.min(23, vanU + Math.floor(e.offsetY / UURHOOGTE));
+        openNieuw(dag, k, pad(u) + ':00', pad(Math.min(23, u + 1)) + ':00');
+      };
+      // Overlappende afspraken naast elkaar zetten
+      const mijn = getimed.filter((ev) => (MENSEN[ev.kal] ? ev.kal : 'gezin') === k).sort((a, b) => begin(a) - begin(b) || einde(b) - einde(a));
+      const sporen = []; const groepen = []; let groep = null, groepEinde = -1;
+      mijn.forEach((ev) => {
+        if (begin(ev) >= groepEinde) { groep = []; groepen.push(groep); sporen.length = 0; }
+        let s = sporen.findIndex((e) => e <= begin(ev)); if (s < 0) { s = sporen.length; sporen.push(0); }
+        sporen[s] = einde(ev); ev._spoor = s; groep.push(ev); groepEinde = Math.max(groepEinde, einde(ev));
+        groep.n = Math.max(groep.n || 0, sporen.length);
+      });
+      groepen.forEach((g) => g.forEach((ev) => {
+        const kl = kleurVan(ev);
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'blok';
+        const top = (begin(ev) - vanU * 60) / 60 * UURHOOGTE, h = (einde(ev) - begin(ev)) / 60 * UURHOOGTE;
+        b.style.top = top + 2 + 'px'; b.style.height = Math.max(22, h - 4) + 'px';
+        b.style.left = `calc(${100 / g.n * ev._spoor}% + 4px)`; b.style.width = `calc(${100 / g.n}% - 8px)`;
+        b.style.setProperty('--k', kl); b.style.setProperty('--t', tekstOp(kl));
+        b.innerHTML = '<div class="tt"></div>' + (h >= 44 ? '<div class="uur"></div>' : '');
+        b.querySelector('.tt').textContent = ev.titel || '(zonder titel)';
+        if (h >= 44) b.querySelector('.uur').textContent = ev.start.slice(11) + ' – ' + ev.einde.slice(11);
+        b.onclick = () => toonDetail(ev);
+        kol.appendChild(b);
+      }));
+      raster.appendChild(kol);
+    });
+
+    const scroll = v.querySelector('.dv-scroll');
+    if (dag === vandaag) {
+      const nu = new Date(), m = nu.getHours() * 60 + nu.getMinutes();
+      if (m >= vanU * 60 && m <= totU * 60) {
+        const lijn = document.createElement('div'); lijn.className = 'nulijn';
+        lijn.style.top = ((m - vanU * 60) / 60 * UURHOOGTE) + 'px'; lijn.dataset.t = pad(nu.getHours()) + ':' + pad(nu.getMinutes());
+        raster.appendChild(lijn);
+        if (eersteKeer) scroll.scrollTop = Math.max(0, (m - vanU * 60) / 60 * UURHOOGTE - 120);
+      }
+    } else if (eersteKeer) {
+      const eerste = getimed.length ? Math.min(...getimed.map(begin)) : 8 * 60;
+      scroll.scrollTop = Math.max(0, (eerste - vanU * 60) / 60 * UURHOOGTE - 20);
+    }
+    eersteKeer = false;
+  }
+
+  function tekenWeek() {
     const vandaag = iso(new Date());
     const zondag = plusDagen(maandag, 6);
     const fmt = (d, o) => d.toLocaleDateString('nl-BE', o);
@@ -270,19 +416,19 @@
     $('fHeel').setAttribute('aria-pressed', heleDag);
     $('fUren').hidden = heleDag;
   };
-  function openNieuw(dag) {
+  function openNieuw(dag, voorWie, van, tot) {
     $('formNieuw').reset();
     $('fDatum').value = dag || (iso(new Date()) >= iso(maandag) && iso(new Date()) < iso(plusDagen(maandag, 7)) ? iso(new Date()) : iso(maandag));
-    $('fVan').value = '09:00'; $('fTot').value = '10:00';
+    $('fVan').value = van || '09:00'; $('fTot').value = tot || '10:00';
     heleDag = false; $('fHeel').setAttribute('aria-pressed', 'false'); $('fUren').hidden = false;
-    wie = 'gezin';
+    wie = voorWie || 'gezin';
     $('wie').querySelectorAll('[data-wie]').forEach((x) => x.setAttribute('aria-pressed', x.dataset.wie === wie));
     $('fMelding').textContent = '';
     $('fBewaar').disabled = false;
     $('dlgNieuw').showModal();
     $('fTitel').focus();
   }
-  $('nieuw').onclick = () => openNieuw();
+  $('nieuw').onclick = () => openNieuw(modus === 'dag' ? iso(dagSel) : undefined);
   $('fAnnuleer').onclick = () => $('dlgNieuw').close();
   $('formNieuw').onsubmit = async (e) => {
     e.preventDefault();
@@ -296,7 +442,8 @@
         van: $('fVan').value, tot: $('fTot').value, locatie: $('fWaar').value.trim(),
       });
       $('dlgNieuw').close();
-      maandag = maandagVan(new Date($('fDatum').value + 'T12:00'));
+      dagSel = new Date($('fDatum').value + 'T12:00');
+      maandag = maandagVan(dagSel);
       laad();
     } catch (err) {
       $('fBewaar').disabled = false;
@@ -307,9 +454,21 @@
   };
 
   // Week wisselen
-  $('vorige').onclick = () => { maandag = plusDagen(maandag, -7); events = []; teken(); laad(); };
-  $('volgende').onclick = () => { maandag = plusDagen(maandag, 7); events = []; teken(); laad(); };
-  $('nu').onclick = () => { maandag = maandagVan(new Date()); laad(); };
+  function ga(n) {
+    const oud = iso(maandag);
+    if (modus === 'dag') { dagSel = plusDagen(dagSel, n); maandag = maandagVan(dagSel); }
+    else { maandag = plusDagen(maandag, 7 * n); dagSel = new Date(maandag); dagSel.setHours(12, 0, 0, 0); }
+    eersteKeer = true;
+    if (iso(maandag) !== oud) { events = []; teken(); laad(); } else teken();
+  }
+  $('vorige').onclick = () => ga(-1);
+  $('volgende').onclick = () => ga(1);
+  $('nu').onclick = () => { dagSel = new Date(); dagSel.setHours(12, 0, 0, 0); maandag = maandagVan(dagSel); eersteKeer = true; laad(); };
+  function zetModus(m) { modus = m; try { localStorage.setItem('hub.agenda.modus', m); } catch (e) {} eersteKeer = true; teken(); }
+  $('wDag').onclick = () => zetModus('dag');
+  $('wWeek').onclick = () => zetModus('week');
+  // Nulijn elke minuut opschuiven
+  setInterval(() => { if (modus === 'dag' && !document.querySelector('dialog[open]')) teken(); }, 60000);
 
   teken();
   laad();
@@ -318,6 +477,7 @@
     if (document.querySelector('dialog[open]')) return;
     const nuMaandag = maandagVan(new Date());
     if (iso(new Date()) === iso(nuMaandag) && new Date().getHours() === 0) maandag = nuMaandag;
+    if (new Date().getHours() === 0 && new Date().getMinutes() < 5) { dagSel = new Date(); dagSel.setHours(12, 0, 0, 0); maandag = maandagVan(dagSel); }
     laad();
   }, 5 * 60000);
 </script>
