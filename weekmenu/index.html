@@ -35,7 +35,9 @@
   .snel { display: flex; gap: 8px; flex-wrap: wrap; }
   .snel button { font-family: var(--sans); font-size: 14px; color: var(--navy); background: var(--room); border: 1px solid var(--lijn); border-radius: 999px; min-height: 42px; padding: 0 16px; cursor: pointer; }
   .snel button[aria-pressed="true"] { background: var(--navy); color: var(--wit); border-color: var(--navy); }
-  .dag .rlabel { font-family: var(--sans); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--zacht); display: block; margin-top: 4px; }
+  .dag .kaartje { width: 52px; height: 52px; border-radius: 50%; background: var(--room); display: grid; place-items: center; color: var(--navy); }
+  .dag .kaartje:active { background: var(--beige); }
+  .dag .kaartje svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
   .acties { display: flex; justify-content: space-between; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
   .acties div { display: flex; gap: 10px; }
 
@@ -66,7 +68,7 @@
       <div class="veld" id="receptVeld"><span class="label">Uit de recepten</span><div class="snel" id="receptKeuze"></div></div>
       <div class="veld" id="snelVeld"><span class="label">Eerder gegeten</span><div class="snel" id="snel"></div></div>
       <div class="acties">
-        <div><button type="button" class="knop" id="fWis">Leegmaken</button><a class="knop" id="fRecept" href="#">Recept bekijken</a></div>
+        <div><button type="button" class="knop" id="fWis">Leegmaken</button></div>
         <div><button type="button" class="knop" id="fAnnuleer">Annuleren</button><button type="submit" class="knop vol">Opslaan</button></div>
       </div>
     </form>
@@ -95,12 +97,23 @@
     w.innerHTML = '';
     for (let i = 0; i < 7; i++) {
       const d = plusDagen(maandag, i), dag = iso(d), m = menu[dag];
-      const b = document.createElement('button');
-      b.type = 'button';
+      const b = document.createElement('div');
+      b.setAttribute('role', 'button'); b.tabIndex = 0;
+      b.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bewerk(dag, i); } };
       b.className = 'dag' + (dag === vandaag ? ' vandaag' : '') + (dag < vandaag ? ' voorbij' : '');
       b.innerHTML = `<div class="wanneer"><div class="nr">${d.getDate()}</div><div class="label">${DAGNAMEN[i]}${dag === vandaag ? ' · vandaag' : ''}</div></div>` +
         `<div class="gerecht"></div><div class="leeg">${m && m.gerecht ? '' : (geladen ? '+' : '·')}</div>`;
-      if (m && m.gerecht) { b.querySelector('.gerecht').textContent = m.gerecht; if (m.recept && recepten.some((r) => r.id === m.recept)) { const l = document.createElement('span'); l.className = 'rlabel'; l.textContent = 'Recept'; b.querySelector('.gerecht').appendChild(l); } }
+      if (m && m.gerecht) {
+        b.querySelector('.gerecht').textContent = m.gerecht;
+        if (m.recept && recepten.some((r) => r.id === m.recept)) {
+          const a = document.createElement('a');
+          a.className = 'kaartje'; a.href = '../recepten/#' + encodeURIComponent(m.recept);
+          a.setAttribute('aria-label', 'Recept bekijken: ' + m.gerecht);
+          a.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18H6z"/><path d="M9 7h6M9 10.5h6M9 14h4"/><path d="M12 17.5h.01"/></svg>';
+          a.onclick = (e) => e.stopPropagation();
+          const plek = b.querySelector('.leeg'); plek.replaceWith(a);
+        }
+      }
       b.setAttribute('aria-label', DAGNAMEN[i] + ' ' + d.getDate() + (m && m.gerecht ? ': ' + m.gerecht : ', nog niets gepland'));
       b.onclick = () => bewerk(dag, i);
       w.appendChild(b);
@@ -141,8 +154,6 @@
 
   function markeer() {
     $('receptKeuze').querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.id === gekozenRecept));
-    $('fRecept').hidden = !gekozenRecept;
-    $('fRecept').href = '../recepten/#' + encodeURIComponent(gekozenRecept);
   }
   $('fGerecht').addEventListener('input', () => { const r = recepten.find((x) => x.id === gekozenRecept); if (r && $('fGerecht').value.trim() !== r.titel) { gekozenRecept = ''; markeer(); } });
 
