@@ -68,6 +68,14 @@
   .groepkop { display: flex; align-items: center; gap: 18px; margin-bottom: calc(-1 * clamp(8px, 2vh, 24px)); }
   .groepkop h2 { font-family: var(--serif); font-weight: normal; font-size: clamp(28px, 3vw, 40px); margin: 0; }
   .groepkop[hidden] { display: none; }
+  .aftellen { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: clamp(14px, 1.6vw, 24px); }
+  .aftellen[hidden] { display: none; }
+  .af { background: var(--wit); border: 1px solid var(--lijn); border-radius: var(--radius); padding: clamp(18px, 2vw, 28px) clamp(20px, 2.4vw, 34px); display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+  .af .wat { font-family: var(--serif); font-size: clamp(26px, 2.6vw, 38px); line-height: 1.1; }
+  .af .wanneer { font-family: var(--sans); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--zacht); margin-top: 8px; }
+  .af .teller { text-align: right; }
+  .af .getal { font-family: var(--sans); font-weight: 300; font-size: clamp(54px, 6vw, 88px); line-height: .9; font-variant-numeric: tabular-nums; }
+  .af .eenheid { font-family: var(--sans); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--zacht); margin-top: 6px; }
 
   footer { display: flex; justify-content: space-between; align-items: center; }
   footer a { color: inherit; text-decoration: none; padding: 12px 0; }
@@ -88,6 +96,7 @@
   </header>
 
   <div class="groepkop" id="groepkop" hidden><a class="knop" href="#">Terug</a><h2 id="groepnaam"></h2></div>
+  <section class="aftellen" id="aftellen" aria-label="Aftellen"></section>
   <main id="tegels"></main>
 
   <footer>
@@ -123,6 +132,35 @@
   };
 
   const wrap = document.getElementById('tegels');
+  // Aftellen naar vaste dagen (maand 1-12). Na de dag schuift het door naar volgend jaar.
+  const AFTELLEN = [
+    { wat: 'Sinterklaas', maand: 12, dag: 6 },
+    { wat: 'Kerstmis', maand: 12, dag: 24 },
+  ];
+  function aftellen() {
+    const host = document.getElementById('aftellen');
+    host.hidden = !!location.hash.slice(1);
+    const nu = new Date(), vandaag = new Date(nu.getFullYear(), nu.getMonth(), nu.getDate());
+    host.innerHTML = '';
+    AFTELLEN.map((a) => {
+      let d = new Date(vandaag.getFullYear(), a.maand - 1, a.dag);
+      if (d < vandaag) d = new Date(vandaag.getFullYear() + 1, a.maand - 1, a.dag);
+      return Object.assign({ d, n: Math.round((d - vandaag) / 864e5) }, a);
+    }).forEach((a) => {
+      const el = document.createElement('div');
+      el.className = 'af';
+      el.innerHTML = '<div><div class="wat"></div><div class="wanneer"></div></div><div class="teller"><div class="getal"></div><div class="eenheid"></div></div>';
+      el.querySelector('.wat').textContent = a.wat;
+      el.querySelector('.wanneer').textContent = a.d.toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' });
+      el.querySelector('.getal').textContent = a.n === 0 ? '🎉' : a.n;
+      el.querySelector('.eenheid').textContent = a.n === 0 ? 'Vandaag!' : a.n === 1 ? 'nachtje slapen' : 'nachtjes slapen';
+      host.appendChild(el);
+    });
+  }
+  aftellen();
+  window.addEventListener('hashchange', aftellen);
+  setInterval(aftellen, 60000);
+
   function tegels() {
     const id = location.hash.slice(1);
     const groep = APPS.find((a) => a.groep && a.id === id);
