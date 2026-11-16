@@ -61,6 +61,8 @@
   a.tegel:active { background: var(--room); }
   .tegel svg { width: 58%; height: 58%; stroke: var(--navy); fill: none; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
   .tegel.later { opacity: 0.5; }
+  .tegel .tlabel { position: absolute; left: 10px; right: 10px; bottom: clamp(12px, 1.6vw, 22px); text-align: center; font-family: var(--sans); font-size: clamp(11px, 0.9vw, 14px); letter-spacing: .12em; text-transform: uppercase; color: var(--zacht); }
+  .tegel.met-label svg { width: 50%; height: 50%; margin-bottom: 10%; }
   button.tegel { font: inherit; cursor: pointer; padding: 0; }
   button.tegel:active { background: var(--room); }
   .groepkop { display: flex; align-items: center; gap: 18px; margin-bottom: calc(-1 * clamp(8px, 2vh, 24px)); }
@@ -101,8 +103,9 @@
   // Een tegel met "groep" opent eerst een map met de tegels erin.
   const APPS = [
     { titel: 'Voeding', id: 'voeding', icoon: 'bestek', groep: [
-      { titel: 'Fruitmenu', href: 'fruit/', icoon: 'appel' },
-      { titel: 'Boodschappen', href: 'boodschappen/', icoon: 'tas' },
+      { titel: "Mila's fruit", href: 'fruit/', icoon: 'appel', label: true },
+      { titel: 'Voorraad & boodschappen', href: 'boodschappen/', icoon: 'tas', label: true },
+      { titel: 'Weekmenu', href: 'weekmenu/', icoon: 'pot', label: true },
     ] },
     { titel: 'Kleding', href: 'kleding/', icoon: 'hanger' },
     { titel: 'Gezinsagenda', href: 'agenda/', icoon: 'agenda' },
@@ -112,6 +115,7 @@
     appel: '<path d="M12 7c-2-1.6-6-1.2-6.5 3-.4 3.4 1.6 9 4.5 9 1 0 1.3-.6 2-.6s1 .6 2 .6c2.9 0 4.9-5.6 4.5-9-.5-4.2-4.5-4.6-6.5-3Z"/><path d="M12 7c0-2 1-3.5 3-4"/>',
     hanger: '<path d="M12 7a2 2 0 1 1 2-2"/><path d="M12 7v2L3 16a1.5 1.5 0 0 0 1 2.6h16a1.5 1.5 0 0 0 1-2.6l-9-7"/>',
     tas: '<path d="M5 8h14l-1.2 11.2a1.5 1.5 0 0 1-1.5 1.3H7.7a1.5 1.5 0 0 1-1.5-1.3L5 8Z"/><path d="M9 10V6.5a3 3 0 0 1 6 0V10"/>',
+    pot: '<path d="M4 10h16v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-6Z"/><path d="M2 10h20M9 7c0-1 1-1.5 1-2.5M13 7c0-1 1-1.5 1-2.5"/>',
     bestek: '<path d="M7 3v7a2 2 0 0 0 2 2v9M11 3v7a2 2 0 0 1-2 2M9 3v6"/><path d="M17 21V3c-2 1.2-3 3.6-3 7v3h3"/>',
     agenda: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
   };
@@ -129,6 +133,7 @@
       el.href = a.groep ? '#' + a.id : a.href;
       el.setAttribute('aria-label', a.titel);
       el.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICONEN[a.icoon] + '</svg>';
+      if (a.label) { const l = document.createElement('span'); l.className = 'tlabel'; l.textContent = a.titel; el.appendChild(l); el.classList.add('met-label'); }
       wrap.appendChild(el);
     });
   }

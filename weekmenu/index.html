@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Weekmenu</title>
+<link rel="stylesheet" href="../shared/huisstijl.css">
+<style>
+  body { padding: var(--gutter); display: flex; flex-direction: column; min-height: 100vh; gap: 22px; }
+  input { -webkit-user-select: text; user-select: text; }
+  .balk { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .titel { flex: 1; min-width: 200px; }
+  .titel h1 { font-family: var(--script); font-weight: normal; font-size: clamp(48px, 6vw, 76px); margin: 0; line-height: 1; }
+  .titel .label { margin-top: 18px; }
+  .nav { display: flex; gap: 8px; }
+  .rond { width: 48px; padding: 0; justify-content: center; font-size: 20px; }
+
+  .week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 14px; }
+  .dag { background: var(--wit); border: 1px solid var(--lijn); border-radius: var(--radius); padding: 18px 16px; min-height: 220px; display: flex; flex-direction: column; gap: 10px; text-align: left; cursor: pointer; color: var(--navy); font: inherit; }
+  .dag:active { background: var(--room); }
+  .dag.vandaag { border: 2px solid var(--navy); }
+  .dag.voorbij { opacity: .55; }
+  .dag .nr { font-family: var(--sans); font-weight: 300; font-size: 30px; line-height: 1; }
+  .dag .gerecht { font-family: var(--serif); font-size: clamp(20px, 1.6vw, 26px); line-height: 1.2; overflow-wrap: anywhere; margin-top: 6px; }
+  .dag .noot { font-family: var(--sans); font-size: 13px; color: var(--zacht); overflow-wrap: anywhere; }
+  .dag .leeg { font-family: var(--sans); font-size: 28px; color: var(--beige); margin-top: auto; align-self: center; }
+  .melding { font-family: var(--sans); font-size: 13px; text-align: center; min-height: 18px; color: var(--zacht); }
+
+  dialog { border: 0; border-radius: var(--radius); padding: 28px; background: var(--wit); color: var(--navy); width: min(600px, 92vw); }
+  dialog::backdrop { background: rgba(44, 62, 82, .35); }
+  dialog h2 { font-family: var(--serif); font-weight: normal; font-size: 30px; margin: 0 0 18px; }
+  .veld { margin-bottom: 16px; }
+  .veld .label { display: block; margin-bottom: 8px; }
+  .veld input { font-family: var(--sans); font-size: 16px; color: var(--navy); width: 100%; min-height: 50px; padding: 0 14px; border: 1px solid var(--beige); border-radius: 12px; background: var(--wit); }
+  .snel { display: flex; gap: 8px; flex-wrap: wrap; }
+  .snel button { font-family: var(--sans); font-size: 14px; color: var(--navy); background: var(--room); border: 1px solid var(--lijn); border-radius: 999px; min-height: 42px; padding: 0 16px; cursor: pointer; }
+  .acties { display: flex; justify-content: space-between; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+  .acties div { display: flex; gap: 10px; }
+
+  @media (max-width: 1100px) { .week { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  @media (max-width: 640px) { .week { grid-template-columns: 1fr; } .dag { min-height: 0; } .dag .leeg { margin-top: 0; align-self: flex-start; } }
+</style>
+</head>
+<body data-home="../" data-terug="5">
+  <div class="balk">
+    <a class="knop" href="../#voeding">Terug</a>
+    <div class="titel">
+      <h1>Weekmenu</h1>
+      <div class="label" id="weeklabel"></div>
+    </div>
+    <div class="nav">
+      <button class="knop rond" id="vorige" aria-label="Vorige week">‹</button>
+      <button class="knop" id="nu">Deze week</button>
+      <button class="knop rond" id="volgende" aria-label="Volgende week">›</button>
+    </div>
+  </div>
+
+  <main class="week" id="week"></main>
+  <div class="melding" id="melding"></div>
+
+  <dialog id="dlg">
+    <form method="dialog" id="form">
+      <h2 id="dTitel"></h2>
+      <div class="veld"><label class="label" for="fGerecht">Wat eten we?</label><input id="fGerecht" autocomplete="off" maxlength="120"></div>
+      <div class="veld"><label class="label" for="fNoot">Notitie (mag leeg)</label><input id="fNoot" autocomplete="off" maxlength="200" placeholder="bv. Aaron kookt, restjes van maandag"></div>
+      <div class="veld" id="snelVeld"><span class="label">Eerder gegeten</span><div class="snel" id="snel"></div></div>
+      <div class="acties">
+        <button type="button" class="knop" id="fWis">Leegmaken</button>
+        <div><button type="button" class="knop" id="fAnnuleer">Annuleren</button><button type="submit" class="knop vol">Opslaan</button></div>
+      </div>
+    </form>
+  </dialog>
+
+<script src="../shared/config.js"></script>
+<script src="../shared/hub-db.js"></script>
+<script src="../shared/kiosk.js"></script>
+<script>
+  // Eén document per dag: weekmenu/<JJJJ-MM-DD> = { gerecht, noot }
+  const DAGNAMEN = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'];
+  const $ = (id) => document.getElementById(id);
+  const pad = (n) => String(n).padStart(2, '0');
+  const iso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const plusDagen = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  function maandagVan(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
+
+  let maandag = maandagVan(new Date());
+  let menu = {}; // datum -> { gerecht, noot }
+  let db = null, geladen = false, open = null;
+
+  function teken() {
+    const zondag = plusDagen(maandag, 6), f = (d) => d.toLocaleDateString('nl-BE', { day: 'numeric', month: 'long' });
+    $('weeklabel').textContent = maandag.getMonth() === zondag.getMonth() ? `${maandag.getDate()} – ${f(zondag)}` : `${f(maandag)} – ${f(zondag)}`;
+    const vandaag = iso(new Date()), w = $('week');
+    w.innerHTML = '';
+    for (let i = 0; i < 7; i++) {
+      const d = plusDagen(maandag, i), dag = iso(d), m = menu[dag];
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'dag' + (dag === vandaag ? ' vandaag' : '') + (dag < vandaag ? ' voorbij' : '');
+      b.innerHTML = `<div class="label">${DAGNAMEN[i]}${dag === vandaag ? ' · vandaag' : ''}</div><div class="nr">${d.getDate()}</div>` +
+        (m && m.gerecht ? '<div class="gerecht"></div>' + (m.noot ? '<div class="noot"></div>' : '') : `<div class="leeg">${geladen ? '+' : '·'}</div>`);
+      if (m && m.gerecht) { b.querySelector('.gerecht').textContent = m.gerecht; if (m.noot) b.querySelector('.noot').textContent = m.noot; }
+      b.setAttribute('aria-label', DAGNAMEN[i] + ' ' + d.getDate() + (m && m.gerecht ? ': ' + m.gerecht : ', nog niets gepland'));
+      b.onclick = () => bewerk(dag, i);
+      w.appendChild(b);
+    }
+  }
+
+  function eerder() {
+    const tel = {};
+    Object.values(menu).forEach((m) => { const g = (m.gerecht || '').trim(); if (g) tel[g] = (tel[g] || 0) + 1; });
+    return Object.keys(tel).sort((a, b) => tel[b] - tel[a] || a.localeCompare(b, 'nl')).slice(0, 12);
+  }
+
+  function bewerk(dag, i) {
+    if (!db) return;
+    open = dag;
+    const d = new Date(dag + 'T12:00'), m = menu[dag] || {};
+    $('dTitel').textContent = DAGNAMEN[i] + ' ' + d.toLocaleDateString('nl-BE', { day: 'numeric', month: 'long' });
+    $('fGerecht').value = m.gerecht || '';
+    $('fNoot').value = m.noot || '';
+    const lijst = eerder();
+    $('snelVeld').hidden = !lijst.length;
+    $('snel').innerHTML = '';
+    lijst.forEach((g) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = g; b.onclick = () => { $('fGerecht').value = g; }; $('snel').appendChild(b); });
+    $('fWis').hidden = !m.gerecht;
+    $('dlg').showModal();
+    $('fGerecht').focus();
+  }
+
+  async function bewaar(dag, data) {
+    try {
+      if (data) await db.doc('weekmenu/' + dag).set(data); else await db.doc('weekmenu/' + dag).delete();
+      $('melding').textContent = '';
+    } catch (e) { $('melding').textContent = 'Opslaan lukte niet. Probeer het zo nog eens.'; }
+  }
+
+  $('form').onsubmit = (e) => {
+    e.preventDefault();
+    const gerecht = $('fGerecht').value.trim(), noot = $('fNoot').value.trim(), dag = open;
+    $('dlg').close();
+    if (gerecht) { menu[dag] = { gerecht, noot }; bewaar(dag, { gerecht, noot }); }
+    else if (menu[dag]) { delete menu[dag]; bewaar(dag, null); }
+    teken();
+  };
+  $('fWis').onclick = () => { const dag = open; $('dlg').close(); delete menu[dag]; teken(); bewaar(dag, null); };
+  $('fAnnuleer').onclick = () => $('dlg').close();
+
+  $('vorige').onclick = () => { maandag = plusDagen(maandag, -7); teken(); };
+  $('volgende').onclick = () => { maandag = plusDagen(maandag, 7); teken(); };
+  $('nu').onclick = () => { maandag = maandagVan(new Date()); teken(); };
+
+  teken();
+  claude.use('db').then((d) => {
+    if (!d) { $('melding').textContent = 'De opslag is niet bereikbaar.'; return; }
+    db = d;
+    const timer = setTimeout(() => { if (!geladen) $('melding').textContent = 'Het weekmenu is nog niet bereikbaar.'; }, 10000);
+    db.collection('weekmenu').onSnapshot((snap) => {
+      const n = {}; snap.docs.forEach((s) => { const x = s.data() || {}; if (x.gerecht) n[s.id] = { gerecht: String(x.gerecht), noot: String(x.noot || '') }; });
+      menu = n; geladen = true; clearTimeout(timer); $('melding').textContent = '';
+      if (!$('dlg').open) teken();
+    }, () => { clearTimeout(timer); geladen = true; teken(); $('melding').textContent = 'Het weekmenu kon niet geladen worden.'; });
+  });
+  // Om middernacht schuift "vandaag" mee.
+  setInterval(() => { if (!$('dlg').open) teken(); }, 10 * 60000);
+</script>
+</body>
+</html>
