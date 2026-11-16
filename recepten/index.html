@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Recepten</title>
+<link rel="stylesheet" href="../shared/huisstijl.css">
+<style>
+  body { padding: var(--gutter); display: flex; flex-direction: column; min-height: 100vh; gap: 22px; }
+  input { -webkit-user-select: text; user-select: text; }
+  .balk { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .titel { flex: 1; min-width: 200px; }
+  .titel h1 { font-family: var(--script); font-weight: normal; font-size: clamp(48px, 6vw, 76px); margin: 0; line-height: 1; }
+  .titel .label { margin-top: 18px; }
+  .zoek { font-family: var(--sans); font-size: 16px; color: var(--navy); min-height: 50px; padding: 0 18px; border: 1px solid var(--beige); border-radius: 999px; background: var(--wit); width: min(360px, 100%); }
+
+  .lijst { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 14px; }
+  .kaart { background: var(--wit); border: 1px solid var(--lijn); border-radius: var(--radius); padding: 20px; min-height: 130px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; text-align: left; cursor: pointer; color: var(--navy); font: inherit; }
+  .kaart:active { background: var(--room); }
+  .kaart .naam { font-family: var(--serif); font-size: 24px; line-height: 1.2; overflow-wrap: anywhere; }
+  .meta { font-family: var(--sans); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--zacht); }
+  .leeg { background: var(--wit); border: 1px solid var(--lijn); border-radius: var(--radius); padding: 40px 24px; text-align: center; font-family: var(--serif); font-size: 20px; color: var(--zacht); grid-column: 1 / -1; }
+
+  .detail { display: grid; grid-template-columns: minmax(260px, 1fr) 2fr; gap: 18px; align-items: start; }
+  .vak { background: var(--wit); border: 1px solid var(--lijn); border-radius: var(--radius); padding: 24px 26px; }
+  .vak h2 { font-family: var(--sans); font-weight: 500; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--zacht); margin: 0 0 14px; }
+  .vak ul { margin: 0; padding: 0; list-style: none; }
+  .vak ul li { font-family: var(--serif); font-size: 19px; line-height: 1.35; padding: 9px 0; border-top: 1px solid var(--lijn); }
+  .vak ul li:first-child { border-top: 0; }
+  .vak ol { margin: 0; padding: 0; list-style: none; counter-reset: stap; }
+  .vak ol li { counter-increment: stap; display: grid; grid-template-columns: 40px 1fr; gap: 10px; font-family: var(--serif); font-size: 20px; line-height: 1.45; padding: 12px 0; border-top: 1px solid var(--lijn); }
+  .vak ol li:first-child { border-top: 0; }
+  .vak ol li::before { content: counter(stap); font-family: var(--sans); font-weight: 300; font-size: 26px; line-height: 1.1; }
+  .vak p.noot { font-family: var(--serif); font-size: 17px; color: var(--zacht); margin: 16px 0 0; }
+  .knoppen { display: flex; gap: 10px; flex-wrap: wrap; }
+  .melding { font-family: var(--sans); font-size: 13px; text-align: center; min-height: 18px; color: var(--zacht); }
+
+  dialog { border: 0; border-radius: var(--radius); padding: 28px; background: var(--wit); color: var(--navy); width: min(560px, 92vw); }
+  dialog::backdrop { background: rgba(44, 62, 82, .35); }
+  dialog h2 { font-family: var(--serif); font-weight: normal; font-size: 28px; margin: 0 0 18px; }
+  .dagen { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+  .dagen button { font-family: var(--sans); font-size: 14px; color: var(--navy); background: var(--room); border: 1px solid var(--lijn); border-radius: 12px; min-height: 54px; padding: 6px 10px; cursor: pointer; text-align: left; }
+  .dagen button small { display: block; font-size: 11px; color: var(--zacht); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .acties { display: flex; justify-content: space-between; gap: 10px; margin-top: 20px; flex-wrap: wrap; align-items: center; }
+
+  @media (max-width: 800px) { .detail { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body data-home="../" data-terug="10">
+  <div class="balk">
+    <a class="knop" id="terug" href="../#voeding">Terug</a>
+    <div class="titel">
+      <h1 id="kop">Recepten</h1>
+      <div class="label" id="sub"></div>
+    </div>
+    <input class="zoek" id="zoek" type="search" placeholder="Zoek een recept of ingrediënt" autocomplete="off">
+    <div class="knoppen" id="detailKnoppen" hidden><button class="knop vol" id="opMenu">Op het weekmenu</button></div>
+  </div>
+
+  <main id="inhoud"></main>
+  <div class="melding" id="melding"></div>
+
+  <dialog id="dlg">
+    <h2 id="dTitel">Op welke dag?</h2>
+    <div class="dagen" id="dagen"></div>
+    <div class="acties">
+      <div class="knoppen"><button class="knop" id="dVorige">‹ Vorige week</button><button class="knop" id="dVolgende">Volgende week ›</button></div>
+      <button class="knop" id="dSluit">Annuleren</button>
+    </div>
+  </dialog>
+
+<script src="../shared/config.js"></script>
+<script src="../shared/hub-db.js"></script>
+<script src="../shared/kiosk.js"></script>
+<script>
+  // Recepten: recepten/<id> = { titel, porties, tijd, categorie, ingredienten: [tekst], stappen: [tekst], noot, bron }
+  const $ = (id) => document.getElementById(id);
+  const pad = (n) => String(n).padStart(2, '0');
+  const iso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const plusDagen = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  function maandagVan(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
+  const DAGNAMEN = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'];
+  const lijstVan = (v) => Array.isArray(v) ? v.map(String).filter((x) => x.trim()) : String(v || '').split('\n').filter((x) => x.trim());
+
+  let db = null, recepten = [], menu = {}, geladen = false;
+  let kiesMaandag = maandagVan(new Date());
+
+  function huidig() { const id = decodeURIComponent(location.hash.slice(1)); return id ? recepten.find((r) => r.id === id) : null; }
+  function meta(r) { return [r.categorie, r.tijd, r.porties ? r.porties + ' pers.' : ''].filter(Boolean).join(' · '); }
+
+  function teken() {
+    const r = huidig(), host = $('inhoud');
+    $('zoek').hidden = !!r; $('detailKnoppen').hidden = !r;
+    $('terug').href = r ? '#' : '../#voeding';
+    host.innerHTML = '';
+    if (r) {
+      $('kop').textContent = 'Recepten'; $('sub').textContent = '';
+      const d = document.createElement('div'); d.className = 'detail';
+      d.innerHTML = `<div class="vak"><h2>Ingrediënten</h2><ul id="ing"></ul></div><div class="vak"><h2>Bereiding</h2><ol id="stap"></ol></div>`;
+      const kop = document.createElement('div'); kop.style.cssText = 'grid-column:1/-1';
+      kop.innerHTML = '<div style="font-family:var(--serif);font-size:clamp(30px,3vw,44px);line-height:1.15"></div><div class="meta" style="margin-top:8px"></div>';
+      kop.firstChild.textContent = r.titel; kop.lastChild.textContent = meta(r);
+      d.prepend(kop);
+      lijstVan(r.ingredienten).forEach((x) => { const li = document.createElement('li'); li.textContent = x; d.querySelector('#ing').appendChild(li); });
+      lijstVan(r.stappen).forEach((x) => { const li = document.createElement('li'); li.textContent = x; d.querySelector('#stap').appendChild(li); });
+      if (r.noot) { const p = document.createElement('p'); p.className = 'noot'; p.textContent = r.noot; d.querySelector('#stap').after(p); }
+      host.appendChild(d);
+      window.scrollTo(0, 0);
+      return;
+    }
+    $('kop').textContent = 'Recepten';
+    const q = $('zoek').value.trim().toLowerCase();
+    const zicht = recepten.filter((x) => !q || (x.titel + ' ' + (x.categorie || '') + ' ' + lijstVan(x.ingredienten).join(' ')).toLowerCase().includes(q));
+    $('sub').textContent = geladen ? recepten.length + (recepten.length === 1 ? ' recept' : ' recepten') : 'Laden…';
+    const g = document.createElement('div'); g.className = 'lijst';
+    if (geladen && !zicht.length) g.innerHTML = `<div class="leeg">${recepten.length ? 'Geen recept gevonden.' : 'Nog geen recepten. Stuur ze naar Claude, dan verschijnen ze hier.'}</div>`;
+    zicht.forEach((x) => {
+      const b = document.createElement('a'); b.className = 'kaart'; b.href = '#' + encodeURIComponent(x.id); b.style.textDecoration = 'none';
+      b.innerHTML = '<div class="naam"></div><div class="meta"></div>';
+      b.firstChild.textContent = x.titel; b.lastChild.textContent = meta(x);
+      g.appendChild(b);
+    });
+    host.appendChild(g);
+  }
+
+  // Op het weekmenu zetten
+  function tekenDagen() {
+    const zondag = plusDagen(kiesMaandag, 6), f = (d) => d.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' });
+    $('dTitel').textContent = 'Op welke dag? (' + f(kiesMaandag) + ' – ' + f(zondag) + ')';
+    $('dagen').innerHTML = '';
+    for (let i = 0; i < 7; i++) {
+      const d = plusDagen(kiesMaandag, i), dag = iso(d), b = document.createElement('button');
+      b.innerHTML = '<span></span><small></small>';
+      b.firstChild.textContent = DAGNAMEN[i] + ' ' + d.getDate();
+      b.lastChild.textContent = (menu[dag] && menu[dag].gerecht) || '—';
+      b.onclick = async () => {
+        const r = huidig(); if (!r) return;
+        $('dlg').close();
+        try { await db.doc('weekmenu/' + dag).set({ gerecht: r.titel, recept: r.id }); $('melding').textContent = r.titel + ' staat op ' + DAGNAMEN[i].toLowerCase() + ' ' + d.getDate() + '.'; }
+        catch (e) { $('melding').textContent = 'Opslaan lukte niet. Probeer het zo nog eens.'; }
+      };
+      $('dagen').appendChild(b);
+    }
+  }
+  $('opMenu').onclick = () => { if (!db) return; kiesMaandag = maandagVan(new Date()); tekenDagen(); $('dlg').showModal(); };
+  $('dVorige').onclick = () => { kiesMaandag = plusDagen(kiesMaandag, -7); tekenDagen(); };
+  $('dVolgende').onclick = () => { kiesMaandag = plusDagen(kiesMaandag, 7); tekenDagen(); };
+  $('dSluit').onclick = () => $('dlg').close();
+
+  $('zoek').addEventListener('input', teken);
+  window.addEventListener('hashchange', () => { $('melding').textContent = ''; teken(); });
+  teken();
+
+  claude.use('db').then((d) => {
+    if (!d) { $('melding').textContent = 'De opslag is niet bereikbaar.'; return; }
+    db = d;
+    db.collection('recepten').onSnapshot((snap) => {
+      recepten = snap.docs.map((s) => Object.assign({}, s.data() || {}, { id: s.id })).filter((r) => r.titel)
+        .sort((a, b) => String(a.titel).localeCompare(String(b.titel), 'nl'));
+      geladen = true; teken();
+    }, () => { geladen = true; teken(); $('melding').textContent = 'De recepten konden niet geladen worden.'; });
+    db.collection('weekmenu').onSnapshot((snap) => { const n = {}; snap.docs.forEach((s) => { n[s.id] = s.data() || {}; }); menu = n; if ($('dlg').open) tekenDagen(); }, () => {});
+  });
+</script>
+</body>
+</html>

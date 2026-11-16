@@ -34,6 +34,8 @@
   .veld input { font-family: var(--sans); font-size: 16px; color: var(--navy); width: 100%; min-height: 50px; padding: 0 14px; border: 1px solid var(--beige); border-radius: 12px; background: var(--wit); }
   .snel { display: flex; gap: 8px; flex-wrap: wrap; }
   .snel button { font-family: var(--sans); font-size: 14px; color: var(--navy); background: var(--room); border: 1px solid var(--lijn); border-radius: 999px; min-height: 42px; padding: 0 16px; cursor: pointer; }
+  .snel button[aria-pressed="true"] { background: var(--navy); color: var(--wit); border-color: var(--navy); }
+  .dag .rlabel { font-family: var(--sans); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--zacht); display: block; margin-top: 4px; }
   .acties { display: flex; justify-content: space-between; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
   .acties div { display: flex; gap: 10px; }
 
@@ -61,9 +63,10 @@
     <form method="dialog" id="form">
       <h2 id="dTitel"></h2>
       <div class="veld"><label class="label" for="fGerecht">Wat eten we?</label><input id="fGerecht" autocomplete="off" maxlength="120"></div>
+      <div class="veld" id="receptVeld"><span class="label">Uit de recepten</span><div class="snel" id="receptKeuze"></div></div>
       <div class="veld" id="snelVeld"><span class="label">Eerder gegeten</span><div class="snel" id="snel"></div></div>
       <div class="acties">
-        <button type="button" class="knop" id="fWis">Leegmaken</button>
+        <div><button type="button" class="knop" id="fWis">Leegmaken</button><a class="knop" id="fRecept" href="#">Recept bekijken</a></div>
         <div><button type="button" class="knop" id="fAnnuleer">Annuleren</button><button type="submit" class="knop vol">Opslaan</button></div>
       </div>
     </form>
@@ -97,16 +100,17 @@
       b.className = 'dag' + (dag === vandaag ? ' vandaag' : '') + (dag < vandaag ? ' voorbij' : '');
       b.innerHTML = `<div class="wanneer"><div class="nr">${d.getDate()}</div><div class="label">${DAGNAMEN[i]}${dag === vandaag ? ' · vandaag' : ''}</div></div>` +
         `<div class="gerecht"></div><div class="leeg">${m && m.gerecht ? '' : (geladen ? '+' : '·')}</div>`;
-      if (m && m.gerecht) b.querySelector('.gerecht').textContent = m.gerecht;
+      if (m && m.gerecht) { b.querySelector('.gerecht').textContent = m.gerecht; if (m.recept && recepten.some((r) => r.id === m.recept)) { const l = document.createElement('span'); l.className = 'rlabel'; l.textContent = 'Recept'; b.querySelector('.gerecht').appendChild(l); } }
       b.setAttribute('aria-label', DAGNAMEN[i] + ' ' + d.getDate() + (m && m.gerecht ? ': ' + m.gerecht : ', nog niets gepland'));
       b.onclick = () => bewerk(dag, i);
       w.appendChild(b);
     }
   }
 
+  let recepten = [], gekozenRecept = '';
   function eerder() {
-    const tel = {};
-    Object.values(menu).forEach((m) => { const g = (m.gerecht || '').trim(); if (g) tel[g] = (tel[g] || 0) + 1; });
+    const tel = {}, rec = new Set(recepten.map((r) => r.titel));
+    Object.values(menu).forEach((m) => { const g = (m.gerecht || '').trim(); if (g && !rec.has(g)) tel[g] = (tel[g] || 0) + 1; });
     return Object.keys(tel).sort((a, b) => tel[b] - tel[a] || a.localeCompare(b, 'nl')).slice(0, 12);
   }
 
@@ -116,14 +120,31 @@
     const d = new Date(dag + 'T12:00'), m = menu[dag] || {};
     $('dTitel').textContent = DAGNAMEN[i] + ' ' + d.toLocaleDateString('nl-BE', { day: 'numeric', month: 'long' });
     $('fGerecht').value = m.gerecht || '';
+    gekozenRecept = m.recept && recepten.some((r) => r.id === m.recept) ? m.recept : '';
+    $('receptVeld').hidden = !recepten.length;
+    $('receptKeuze').innerHTML = '';
+    recepten.forEach((r) => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = r.titel; b.dataset.id = r.id;
+      b.setAttribute('aria-pressed', r.id === gekozenRecept);
+      b.onclick = () => { gekozenRecept = r.id; $('fGerecht').value = r.titel; markeer(); };
+      $('receptKeuze').appendChild(b);
+    });
+    markeer();
     const lijst = eerder();
     $('snelVeld').hidden = !lijst.length;
     $('snel').innerHTML = '';
-    lijst.forEach((g) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = g; b.onclick = () => { $('fGerecht').value = g; }; $('snel').appendChild(b); });
+    lijst.forEach((g) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = g; b.onclick = () => { $('fGerecht').value = g; gekozenRecept = ''; markeer(); }; $('snel').appendChild(b); });
     $('fWis').hidden = !m.gerecht;
     $('dlg').showModal();
     $('fGerecht').focus();
   }
+
+  function markeer() {
+    $('receptKeuze').querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.id === gekozenRecept));
+    $('fRecept').hidden = !gekozenRecept;
+    $('fRecept').href = '../recepten/#' + encodeURIComponent(gekozenRecept);
+  }
+  $('fGerecht').addEventListener('input', () => { const r = recepten.find((x) => x.id === gekozenRecept); if (r && $('fGerecht').value.trim() !== r.titel) { gekozenRecept = ''; markeer(); } });
 
   async function bewaar(dag, data) {
     try {
@@ -136,7 +157,7 @@
     e.preventDefault();
     const gerecht = $('fGerecht').value.trim(), dag = open;
     $('dlg').close();
-    if (gerecht) { menu[dag] = { gerecht }; bewaar(dag, { gerecht }); }
+    if (gerecht) { const x = gekozenRecept ? { gerecht, recept: gekozenRecept } : { gerecht }; menu[dag] = x; bewaar(dag, x); }
     else if (menu[dag]) { delete menu[dag]; bewaar(dag, null); }
     teken();
   };
@@ -153,10 +174,14 @@
     db = d;
     const timer = setTimeout(() => { if (!geladen) $('melding').textContent = 'Het weekmenu is nog niet bereikbaar.'; }, 10000);
     db.collection('weekmenu').onSnapshot((snap) => {
-      const n = {}; snap.docs.forEach((s) => { const x = s.data() || {}; if (x.gerecht) n[s.id] = { gerecht: String(x.gerecht) }; });
+      const n = {}; snap.docs.forEach((s) => { const x = s.data() || {}; if (x.gerecht) n[s.id] = x.recept ? { gerecht: String(x.gerecht), recept: String(x.recept) } : { gerecht: String(x.gerecht) }; });
       menu = n; geladen = true; clearTimeout(timer); $('melding').textContent = '';
       if (!$('dlg').open) teken();
     }, () => { clearTimeout(timer); geladen = true; teken(); $('melding').textContent = 'Het weekmenu kon niet geladen worden.'; });
+    db.collection('recepten').onSnapshot((snap) => {
+      recepten = snap.docs.map((s) => ({ id: s.id, titel: String((s.data() || {}).titel || '') })).filter((r) => r.titel).sort((a, b) => a.titel.localeCompare(b.titel, 'nl'));
+      if (!$('dlg').open) teken();
+    }, () => {});
   });
   // Om middernacht schuift "vandaag" mee.
   setInterval(() => { if (!$('dlg').open) teken(); }, 10 * 60000);
