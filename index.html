@@ -71,7 +71,7 @@
   .aftellen { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: clamp(14px, 1.6vw, 24px); }
   .aftellen[hidden] { display: none; }
   .af { background: var(--wit); border: 1px solid var(--lijn); border-radius: var(--radius); padding: clamp(18px, 2vw, 28px) clamp(20px, 2.4vw, 34px); display: flex; align-items: center; justify-content: space-between; gap: 18px; }
-  .af .wat { font-family: var(--serif); font-size: clamp(26px, 2.6vw, 38px); line-height: 1.1; }
+  .af .wat svg { width: clamp(64px, 6vw, 92px); height: clamp(64px, 6vw, 92px); stroke: var(--navy); fill: none; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; display: block; }
   .af .wanneer { font-family: var(--sans); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--zacht); margin-top: 8px; }
   .af .teller { text-align: right; }
   .af .getal { font-family: var(--sans); font-weight: 300; font-size: clamp(54px, 6vw, 88px); line-height: .9; font-variant-numeric: tabular-nums; }
@@ -134,9 +134,13 @@
   const wrap = document.getElementById('tegels');
   // Aftellen naar vaste dagen (maand 1-12). Na de dag schuift het door naar volgend jaar.
   const AFTELLEN = [
-    { wat: 'Sinterklaas', maand: 12, dag: 6 },
-    { wat: 'Kerstmis', maand: 12, dag: 24 },
+    { wat: 'Sinterklaas', maand: 12, dag: 6, icoon: 'mijter' },
+    { wat: 'Kerstmis', maand: 12, dag: 24, icoon: 'boom' },
   ];
+  const SYMBOLEN = {
+    mijter: '<path d="M6 21h12l-.6-9.5C16.9 7.2 14.8 4.3 12 2.5 9.2 4.3 7.1 7.2 6.6 11.5L6 21Z"/><path d="M12 9v7M9.5 12.5h5M6.4 17.5h11.2"/>',
+    boom: '<path d="M12 1.8l.9 1.8 2 .3-1.45 1.4.35 2L12 6.35l-1.8.95.35-2L9.1 3.9l2-.3.9-1.8Z"/><path d="M12 7.5 7 12.5h3L5.5 17h4L4 21h16l-5.5-4h4L14 12.5h3L12 7.5Z"/>',
+  };
   function aftellen() {
     const host = document.getElementById('aftellen');
     host.hidden = !!location.hash.slice(1);
@@ -150,7 +154,8 @@
       const el = document.createElement('div');
       el.className = 'af';
       el.innerHTML = '<div><div class="wat"></div><div class="wanneer"></div></div><div class="teller"><div class="getal"></div><div class="eenheid"></div></div>';
-      el.querySelector('.wat').textContent = a.wat;
+      el.querySelector('.wat').innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + SYMBOLEN[a.icoon] + '</svg>';
+      el.setAttribute('aria-label', a.wat);
       el.querySelector('.wanneer').textContent = a.d.toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' });
       el.querySelector('.getal').textContent = a.n === 0 ? '🎉' : a.n;
       el.querySelector('.eenheid').textContent = a.n === 0 ? 'Vandaag!' : a.n === 1 ? 'nachtje slapen' : 'nachtjes slapen';
