@@ -80,8 +80,13 @@
   .dv-uur:first-child span { top: 2px; }
   .dv-kol { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--lijn); cursor: pointer; }
   .blok { position: absolute; display: flex; flex-direction: column; justify-content: flex-start; border: 0; border-radius: 10px; padding: 6px 8px; text-align: left; cursor: pointer; overflow: hidden; background: var(--k); color: var(--t); box-shadow: 0 0 0 2px var(--wit); font: inherit; }
-  .blok .tt { font-family: var(--sans); font-size: 14px; font-weight: 500; line-height: 1.2; overflow-wrap: anywhere; }
+  .blok .tt { font-family: var(--sans); font-size: 14px; font-weight: 500; line-height: 1.2; overflow-wrap: break-word; hyphens: auto; }
   .blok .uur { font-family: var(--sans); font-size: 12px; opacity: .85; margin-top: 2px; }
+  .wkdag .datumrond { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; font-family: var(--sans); font-weight: 300; font-size: 26px; color: var(--navy); }
+  .wkdag.nu .datumrond { background: var(--navy); color: var(--wit); }
+  .wkdag.voorbij { opacity: .5; }
+  .wkdag .feestje { font-family: var(--sans); font-size: 10px; color: var(--zacht); text-align: center; padding: 0 4px; line-height: 1.2; }
+  .dv-kol.vandaag { background: rgba(225, 207, 185, .18); }
   .nulijn { position: absolute; left: 60px; right: 0; height: 2px; background: #C9483B; z-index: 3; pointer-events: none; }
   .nulijn::before { content: attr(data-t); position: absolute; left: -58px; top: -10px; background: #C9483B; color: #fff; font-family: var(--sans); font-size: 11px; font-weight: 500; padding: 2px 6px; border-radius: 6px; }
   [hidden] { display: none !important; }
@@ -251,8 +256,8 @@
   }
 
   function teken() {
-    $('week').hidden = modus !== 'week';
-    $('dagview').hidden = modus !== 'dag';
+    $('week').hidden = true;
+    $('dagview').hidden = false;
     $('wDag').setAttribute('aria-pressed', modus === 'dag');
     $('wWeek').setAttribute('aria-pressed', modus === 'week');
     if (modus === 'dag') tekenDag(); else tekenWeek();
@@ -260,37 +265,36 @@
 
   const UURHOOGTE = 64;
   let eersteKeer = true;
-  function tekenDag() {
-    const dag = iso(dagSel), vandaag = iso(new Date());
-    const vanDag = events.filter((ev) => ev.heleDag ? opDag(ev, dag) : (ev.start.slice(0, 10) <= dag && ev.einde.slice(0, 10) >= dag && !(ev.einde.slice(0, 10) === dag && ev.einde.slice(11) === '00:00')));
-    const feest = vanDag.filter((ev) => ev.kal === 'feestdagen').map((ev) => ev.titel);
-    let label = dagSel.toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' });
-    label = label.charAt(0).toUpperCase() + label.slice(1);
-    $('weeklabel').textContent = label + (dag === vandaag ? ' · vandaag' : '') + (feest.length ? ' · ' + feest.join(' · ') : '');
-
-    const begin = (ev) => ev.start.slice(0, 10) < dag ? 0 : minVan(ev.start);
-    const einde = (ev) => ev.einde.slice(0, 10) > dag ? 1440 : Math.max(minVan(ev.einde), begin(ev) + 15);
-    const getimed = vanDag.filter((ev) => !ev.heleDag && ev.kal !== 'feestdagen');
+  // Een tijdsraster met kolommen: personen (dag) of dagen (week).
+  function dagFilter(dag) {
+    return (ev) => ev.heleDag ? opDag(ev, dag) : (ev.start.slice(0, 10) <= dag && ev.einde.slice(0, 10) >= dag && !(ev.einde.slice(0, 10) === dag && ev.einde.slice(11) === '00:00'));
+  }
+  function tekenRaster(kols) {
+    const vandaag = iso(new Date()), v = $('dagview');
+    const beginOp = (dag) => (ev) => ev.start.slice(0, 10) < dag ? 0 : minVan(ev.start);
+    const eindeOp = (dag) => (ev) => ev.einde.slice(0, 10) > dag ? 1440 : Math.max(minVan(ev.einde), beginOp(dag)(ev) + 15);
+    kols.forEach((k) => {
+      k.items = events.filter((ev) => ev.kal !== 'feestdagen' && dagFilter(k.dag)(ev) && k.van(ev));
+      k.begin = beginOp(k.dag); k.einde = eindeOp(k.dag);
+    });
     let vanU = 7, totU = 22;
-    getimed.forEach((ev) => { vanU = Math.min(vanU, Math.floor(begin(ev) / 60)); totU = Math.max(totU, Math.ceil(einde(ev) / 60)); });
+    kols.forEach((k) => k.items.filter((ev) => !ev.heleDag).forEach((ev) => { vanU = Math.min(vanU, Math.floor(k.begin(ev) / 60)); totU = Math.max(totU, Math.ceil(k.einde(ev) / 60)); }));
     totU = Math.min(totU, 24);
 
-    const v = $('dagview');
-    v.style.setProperty('--n', KOLOMMEN.length);
-    const kop = KOLOMMEN.map((k) => { const m = MENSEN[k], f = FOTOS[k]; return `<div class="persoon"><div class="avatar${f ? ' foto' : ''}" style="background-color:${m.kleur};color:${tekstOp(m.kleur)};${f ? `background-image:url('${f}');box-shadow:0 0 0 3px ${m.kleur}` : ''}">${m.naam.charAt(0)}</div><div class="label">${m.naam}</div></div>`; }).join('');
-    v.innerHTML = `<div class="dv-rij dv-kop"><div class="gutter"></div>${kop}</div>
-      <div class="dv-rij dv-heel"><div class="gutter">Hele dag</div>${KOLOMMEN.map((k) => `<div data-heel="${k}"></div>`).join('')}</div>
+    v.style.setProperty('--n', kols.length);
+    v.innerHTML = `<div class="dv-rij dv-kop"><div class="gutter"></div>${kols.map((k) => k.kop).join('')}</div>
+      <div class="dv-rij dv-heel"><div class="gutter">Hele dag</div>${kols.map((k, i) => `<div data-heel="${i}"></div>`).join('')}</div>
       <div class="dv-scroll"><div class="dv-raster" style="height:${(totU - vanU) * UURHOOGTE + 8}px"></div></div>`;
-
-    vanDag.filter((ev) => ev.heleDag && ev.kal !== 'feestdagen').forEach((ev) => {
-      const host = v.querySelector(`[data-heel="${ev.kal}"]`) || v.querySelector('[data-heel="gezin"]');
-      const k = kleurVan(ev);
-      const b = document.createElement('button');
-      b.type = 'button'; b.className = 'chip';
-      b.style.setProperty('--k', k); b.style.setProperty('--t', tekstOp(k));
-      b.textContent = ev.titel || '(zonder titel)';
-      b.onclick = () => toonDetail(ev);
-      host.appendChild(b);
+    kols.forEach((k, i) => {
+      const host = v.querySelector(`[data-heel="${i}"]`);
+      k.items.filter((ev) => ev.heleDag).forEach((ev) => {
+        const kl = kleurVan(ev), b = document.createElement('button');
+        b.type = 'button'; b.className = 'chip';
+        b.style.setProperty('--k', kl); b.style.setProperty('--t', tekstOp(kl));
+        b.textContent = ev.titel || '(zonder titel)';
+        b.onclick = () => toonDetail(ev);
+        host.appendChild(b);
+      });
     });
 
     const raster = v.querySelector('.dv-raster');
@@ -299,30 +303,29 @@
       if (u < totU) l.innerHTML = `<span>${pad(u)}:00</span>`;
       raster.appendChild(l);
     }
-    const breedte = `calc((100% - var(--g)) / ${KOLOMMEN.length})`;
-    KOLOMMEN.forEach((k, i) => {
+    const breedte = `calc((100% - var(--g)) / ${kols.length})`;
+    kols.forEach((k, i) => {
       const kol = document.createElement('div');
-      kol.className = 'dv-kol';
+      kol.className = 'dv-kol' + (k.isDag && k.dag === vandaag ? ' vandaag' : '');
       kol.style.left = `calc(var(--g) + ${breedte} * ${i})`; kol.style.width = breedte;
       kol.onclick = (e) => {
         if (e.target !== kol) return;
         const u = Math.min(23, vanU + Math.floor(e.offsetY / UURHOOGTE));
-        openNieuw(dag, k, pad(u) + ':00', pad(Math.min(23, u + 1)) + ':00');
+        openNieuw(k.dag, k.wie, pad(u) + ':00', pad(Math.min(23, u + 1)) + ':00');
       };
       // Overlappende afspraken naast elkaar zetten
-      const mijn = getimed.filter((ev) => (MENSEN[ev.kal] ? ev.kal : 'gezin') === k).sort((a, b) => begin(a) - begin(b) || einde(b) - einde(a));
-      const sporen = []; const groepen = []; let groep = null, groepEinde = -1;
+      const mijn = k.items.filter((ev) => !ev.heleDag).sort((a, b) => k.begin(a) - k.begin(b) || k.einde(b) - k.einde(a));
+      const sporen = [], groepen = []; let groep = null, groepEinde = -1;
       mijn.forEach((ev) => {
-        if (begin(ev) >= groepEinde) { groep = []; groepen.push(groep); sporen.length = 0; }
-        let s = sporen.findIndex((e) => e <= begin(ev)); if (s < 0) { s = sporen.length; sporen.push(0); }
-        sporen[s] = einde(ev); ev._spoor = s; groep.push(ev); groepEinde = Math.max(groepEinde, einde(ev));
+        if (k.begin(ev) >= groepEinde) { groep = []; groepen.push(groep); sporen.length = 0; }
+        let sp = sporen.findIndex((e) => e <= k.begin(ev)); if (sp < 0) { sp = sporen.length; sporen.push(0); }
+        sporen[sp] = k.einde(ev); ev._spoor = sp; groep.push(ev); groepEinde = Math.max(groepEinde, k.einde(ev));
         groep.n = Math.max(groep.n || 0, sporen.length);
       });
       groepen.forEach((g) => g.forEach((ev) => {
-        const kl = kleurVan(ev);
-        const b = document.createElement('button');
+        const kl = kleurVan(ev), b = document.createElement('button');
         b.type = 'button'; b.className = 'blok';
-        const top = (begin(ev) - vanU * 60) / 60 * UURHOOGTE, h = (einde(ev) - begin(ev)) / 60 * UURHOOGTE;
+        const top = (k.begin(ev) - vanU * 60) / 60 * UURHOOGTE, h = (k.einde(ev) - k.begin(ev)) / 60 * UURHOOGTE;
         b.style.top = top + 2 + 'px'; b.style.height = Math.max(22, h - 4) + 'px';
         b.style.left = `calc(${100 / g.n * ev._spoor}% + 4px)`; b.style.width = `calc(${100 / g.n}% - 8px)`;
         b.style.setProperty('--k', kl); b.style.setProperty('--t', tekstOp(kl));
@@ -336,64 +339,53 @@
     });
 
     const scroll = v.querySelector('.dv-scroll');
-    if (dag === vandaag) {
-      const nu = new Date(), m = nu.getHours() * 60 + nu.getMinutes();
-      if (m >= vanU * 60 && m <= totU * 60) {
-        const lijn = document.createElement('div'); lijn.className = 'nulijn';
-        lijn.style.top = ((m - vanU * 60) / 60 * UURHOOGTE) + 'px'; lijn.dataset.t = pad(nu.getHours()) + ':' + pad(nu.getMinutes());
-        raster.appendChild(lijn);
-        if (eersteKeer) scroll.scrollTop = Math.max(0, (m - vanU * 60) / 60 * UURHOOGTE - 120);
-      }
+    const metVandaag = kols.some((k) => k.dag === vandaag);
+    const nu = new Date(), m = nu.getHours() * 60 + nu.getMinutes();
+    if (metVandaag && m >= vanU * 60 && m <= totU * 60) {
+      const lijn = document.createElement('div'); lijn.className = 'nulijn';
+      lijn.style.top = ((m - vanU * 60) / 60 * UURHOOGTE) + 'px'; lijn.dataset.t = pad(nu.getHours()) + ':' + pad(nu.getMinutes());
+      raster.appendChild(lijn);
+      if (eersteKeer) scroll.scrollTop = Math.max(0, (m - vanU * 60) / 60 * UURHOOGTE - 120);
     } else if (eersteKeer) {
-      const eerste = getimed.length ? Math.min(...getimed.map(begin)) : 8 * 60;
+      const alle = kols.flatMap((k) => k.items.filter((ev) => !ev.heleDag).map(k.begin));
+      const eerste = alle.length ? Math.min(...alle) : 8 * 60;
       scroll.scrollTop = Math.max(0, (eerste - vanU * 60) / 60 * UURHOOGTE - 20);
     }
     eersteKeer = false;
   }
 
+  function tekenDag() {
+    const dag = iso(dagSel), vandaag = iso(new Date());
+    const feest = events.filter((ev) => ev.kal === 'feestdagen' && opDag(ev, dag)).map((ev) => ev.titel);
+    let label = dagSel.toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' });
+    label = label.charAt(0).toUpperCase() + label.slice(1);
+    $('weeklabel').textContent = label + (dag === vandaag ? ' · vandaag' : '') + (feest.length ? ' · ' + feest.join(' · ') : '');
+    tekenRaster(KOLOMMEN.map((k) => {
+      const m = MENSEN[k], f = FOTOS[k];
+      return {
+        dag, wie: k, van: (ev) => (MENSEN[ev.kal] ? ev.kal : 'gezin') === k,
+        kop: `<div class="persoon"><div class="avatar${f ? ' foto' : ''}" style="background-color:${m.kleur};color:${tekstOp(m.kleur)};${f ? `background-image:url('${f}');box-shadow:0 0 0 3px ${m.kleur}` : ''}">${m.naam.charAt(0)}</div><div class="label">${m.naam}</div></div>`,
+      };
+    }));
+  }
+
   function tekenWeek() {
-    const vandaag = iso(new Date());
-    const zondag = plusDagen(maandag, 6);
+    const vandaag = iso(new Date()), zondag = plusDagen(maandag, 6);
     const fmt = (d, o) => d.toLocaleDateString('nl-BE', o);
     $('weeklabel').textContent = maandag.getMonth() === zondag.getMonth()
       ? `${maandag.getDate()} – ${fmt(zondag, { day: 'numeric', month: 'long' })}`
       : `${fmt(maandag, { day: 'numeric', month: 'long' })} – ${fmt(zondag, { day: 'numeric', month: 'long' })}`;
-
-    const w = $('week'); w.innerHTML = '';
+    const esc = (t) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const kols = [];
     for (let i = 0; i < 7; i++) {
       const d = plusDagen(maandag, i), dag = iso(d);
-      const vanDag = events.filter((ev) => opDag(ev, dag));
-      const feest = vanDag.filter((ev) => ev.kal === 'feestdagen').map((ev) => ev.titel);
-      const items = vanDag.filter((ev) => ev.kal !== 'feestdagen').sort((a, b) =>
-        (b.heleDag - a.heleDag) || (a.heleDag ? 0 : a.start.localeCompare(b.start)) || a.titel.localeCompare(b.titel));
-
-      const kol = document.createElement('section');
-      kol.className = 'dag' + (dag === vandaag ? ' vandaag' : '') + (dag < vandaag ? ' voorbij' : '');
-      kol.innerHTML = `<button class="kop" type="button" aria-label="Afspraak toevoegen op ${DAGNAMEN[i]}">
-          <div><div class="label">${DAGNAMEN[i]}${dag === vandaag ? ' · vandaag' : ''}</div><div class="nr">${d.getDate()}</div>
-          ${feest.length ? `<div class="feest"></div>` : ''}</div><span class="plus">+</span></button>
-        <div class="lijst"></div>`;
-      if (feest.length) kol.querySelector('.feest').textContent = feest.join(' · ');
-      kol.querySelector('.kop').onclick = () => openNieuw(dag);
-      const lijst = kol.querySelector('.lijst');
-      if (!items.length) lijst.innerHTML = '<div class="leeg">—</div>';
-      items.forEach((ev) => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'item' + (ev.heleDag ? ' heel' : '');
-        const k = kleurVan(ev);
-        b.style.setProperty('--k', k);
-        b.style.setProperty('--kz', tint(k, 0.28));
-        b.innerHTML = (ev.heleDag ? '' : '<div class="uur"></div>') + '<div class="tt"></div>';
-        if (!ev.heleDag) b.querySelector('.uur').textContent = ev.start.slice(11) + ' – ' + ev.einde.slice(11);
-        b.querySelector('.tt').textContent = ev.titel || '(zonder titel)';
-        const lab = SOORTLABEL[soortVan(ev)];
-        if (lab && !/^vrij$/i.test((ev.titel || '').trim())) { const s = document.createElement('span'); s.className = 'soort'; s.textContent = lab; b.querySelector('.tt').prepend(s); }
-        b.onclick = () => toonDetail(ev);
-        lijst.appendChild(b);
+      const feest = events.filter((ev) => ev.kal === 'feestdagen' && opDag(ev, dag)).map((ev) => ev.titel).join(' · ');
+      kols.push({
+        dag, isDag: true, van: () => true,
+        kop: `<div class="persoon wkdag${dag === vandaag ? ' nu' : ''}${dag < vandaag ? ' voorbij' : ''}"><div class="label">${DAGNAMEN[i].slice(0, 2)}</div><div class="datumrond">${d.getDate()}</div>${feest ? `<div class="feestje">${esc(feest)}</div>` : ''}</div>`,
       });
-      w.appendChild(kol);
     }
+    tekenRaster(kols);
   }
 
   // Detail
