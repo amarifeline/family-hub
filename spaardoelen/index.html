@@ -178,11 +178,13 @@
     ster: '<path d="m12 3 2.7 5.6 6.1.8-4.4 4.3 1 6.1L12 17l-5.4 2.8 1-6.1-4.4-4.3 6.1-.8Z"/>',
   };
   const KLEUREN = { beige: '#E1CFB9', roze: '#FFD5DC', blauw: '#C7E6FD', groen: '#CFE0C8', zand: '#EBD9A8' };
-  // De eerste keer staan deze doelen er al in (bedragen in cent).
+  // Vaste doelen (bedragen in cent). Verhoog START_VERSIE om ze opnieuw door te voeren;
+  // al gespaard geld blijft altijd behouden.
+  const START_VERSIE = 2;
   const START = [
-    { id: 'zomerreis-2026', naam: 'Zomerreis 2026', doel: 550000, tegen: null, icoon: 'zon', kleur: 'blauw', volgorde: 1 },
+    { id: 'zomerreis-2026', naam: 'Zomerreis 2027', doel: 500000, tegen: '2027-07', icoon: 'zon', kleur: 'blauw', volgorde: 1 },
     { id: 'skireis-2028', naam: 'Skireis 2028', doel: 500000, tegen: '2028-02', icoon: 'berg', kleur: 'beige', volgorde: 2 },
-    { id: 'disneyland-2028', naam: 'Disneyland 2028', doel: null, tegen: null, icoon: 'kasteel', kleur: 'roze', volgorde: 3 },
+    { id: 'disneyland-2028', naam: 'Disneyland 2028', doel: 150000, tegen: null, icoon: 'kasteel', kleur: 'roze', volgorde: 3 },
   ];
   const MAANDEN = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
 
@@ -456,27 +458,43 @@
   /* ---------- laden ---------- */
   window.addEventListener('hashchange', () => { getekend = null; teken(); });
   teken();
+  async function klaarzetten() {
+    // Zet de vaste doelen in de opslag (eenmalig per START_VERSIE).
+    const vlag = await db.doc('instellingen/spaardoelen').get();
+    if (vlag.exists && (vlag.data() || {}).versie >= START_VERSIE) return;
+    for (const st of START) {
+      const { id, ...rest } = st;
+      const ref = db.doc('spaardoelen/' + id), oud = await ref.get();
+      await ref.set(Object.assign({}, oud.exists ? oud.data() : {}, rest, { stortingen: oud.exists ? (oud.data().stortingen || []) : [] }));
+    }
+    await db.doc('instellingen/spaardoelen').set({ versie: START_VERSIE, gestart: new Date().toISOString() });
+  }
+
+  let stop = null, pogingen = 0;
+  function luister() {
+    if (stop) stop();
+    stop = db.collection('spaardoelen').onSnapshot((snap) => {
+      doelen = snap.docs.map((s) => Object.assign({ id: s.id }, JSON.parse(JSON.stringify(s.data() || {}))))
+        .sort((a, b) => (a.volgorde || 0) - (b.volgorde || 0));
+      if (snap.empty && snap.metadata.fromCache) return; // wacht op de echte gegevens
+      geladen = true; $('melding').textContent = '';
+      if (!$('dlg').open && !$('klavier').open) teken();
+    }, (e) => {
+      console.error('spaardoelen:', e);
+      // Bv. tabblad nog niet aangemaakt: even later opnieuw proberen.
+      if (++pogingen <= 5) setTimeout(luister, 3000);
+      else { geladen = true; teken(); $('melding').textContent = 'De spaardoelen konden niet geladen worden.'; }
+    });
+  }
+
   claude.use('db').then(async (d) => {
     if (!d) { $('melding').textContent = 'De opslag is niet bereikbaar.'; return; }
     db = d;
-    const timer = setTimeout(() => { if (!geladen) $('melding').textContent = 'De spaardoelen zijn nog niet bereikbaar.'; }, 10000);
-    db.collection('spaardoelen').onSnapshot(async (snap) => {
-      if (snap.empty && !snap.metadata.fromCache) {
-        // Eerste keer: de vaste doelen klaarzetten (maar nooit opnieuw als ze bewust gewist zijn).
-        try {
-          const vlag = await db.doc('instellingen/spaardoelen').get();
-          if (!vlag.exists) {
-            await db.doc('instellingen/spaardoelen').set({ gestart: new Date().toISOString() });
-            for (const s of START) { const { id, ...rest } = s; await db.doc('spaardoelen/' + id).set(Object.assign(rest, { stortingen: [] })); }
-            return;
-          }
-        } catch (e) { /* volgende keer opnieuw */ }
-      }
-      doelen = snap.docs.map((s) => Object.assign({ id: s.id }, JSON.parse(JSON.stringify(s.data() || {}))))
-        .sort((a, b) => (a.volgorde || 0) - (b.volgorde || 0));
-      geladen = true; clearTimeout(timer); $('melding').textContent = '';
-      if (!$('dlg').open && !$('klavier').open) teken();
-    }, () => { clearTimeout(timer); geladen = true; teken(); $('melding').textContent = 'De spaardoelen konden niet geladen worden.'; });
+    $('melding').textContent = 'Spaardoelen laden…';
+    for (let i = 0; i < 3; i++) {
+      try { await klaarzetten(); break; } catch (e) { console.error('klaarzetten:', e); await new Promise((r) => setTimeout(r, 2000)); }
+    }
+    luister();
   });
 </script>
 </body>
