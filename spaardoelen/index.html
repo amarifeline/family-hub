@@ -27,17 +27,17 @@
   @keyframes valt { 0% { transform: translateY(-70px); opacity: 0; } 15% { opacity: 1; } 80% { transform: translateY(26px); opacity: 1; } 100% { transform: translateY(40px); opacity: 0; } }
 
   /* Overzicht */
-  .doelen { display: grid; grid-template-columns: repeat(auto-fill, minmax(clamp(240px, 26vw, 340px), 1fr)); gap: clamp(14px, 2vw, 24px); align-content: start; }
-  .kaart { background: var(--wit); border: 1px solid var(--lijn); border-radius: var(--radius); padding: clamp(18px, 2vw, 28px); display: flex; flex-direction: column; align-items: center; gap: 10px; color: inherit; text-decoration: none; text-align: center; cursor: pointer; font: inherit; }
+  .doelen { display: grid; grid-template-columns: repeat(auto-fill, minmax(clamp(170px, 16vw, 230px), 1fr)); gap: clamp(14px, 2vw, 24px); align-content: start; }
+  .kaart { background: var(--wit); border: 1px solid var(--lijn); border-radius: var(--radius); padding: clamp(14px, 1.4vw, 20px); display: flex; flex-direction: column; align-items: center; gap: 10px; color: inherit; text-decoration: none; text-align: center; cursor: pointer; font: inherit; }
   .kaart:active { background: var(--room); }
-  .kaart .varken { width: 72%; max-width: 230px; margin: 8px 0 4px; }
-  .kaart .naam { font-family: var(--serif); font-size: clamp(24px, 2.2vw, 32px); line-height: 1.15; display: flex; align-items: center; gap: 10px; }
-  .kaart .naam svg { width: 26px; height: 26px; flex: none; stroke: var(--navy); fill: none; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+  .kaart .varken { width: 78%; max-width: 170px; margin: 18px 0 2px; }
+  .kaart .naam { font-family: var(--serif); font-size: clamp(19px, 1.6vw, 24px); line-height: 1.15; display: flex; align-items: center; gap: 10px; }
+  .kaart .naam svg { width: 20px; height: 20px; flex: none; stroke: var(--navy); fill: none; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
   .kaart .bedrag { font-family: var(--sans); font-weight: 300; font-size: clamp(22px, 2vw, 28px); font-variant-numeric: tabular-nums; }
   .balkje { width: 100%; height: 8px; border-radius: 99px; background: var(--room); overflow: hidden; }
   .balkje i { display: block; height: 100%; border-radius: 99px; background: var(--navy); transition: width 1.2s ease; }
-  .kaart.nieuw { border: 2px dashed var(--beige); background: transparent; justify-content: center; min-height: 260px; color: var(--zacht); }
-  .kaart.nieuw .plus { font-family: var(--sans); font-weight: 300; font-size: 64px; line-height: 1; color: var(--beige); }
+  .kaart.nieuw { border: 2px dashed var(--beige); background: transparent; justify-content: center; min-height: 180px; color: var(--zacht); }
+  .kaart.nieuw .plus { font-family: var(--sans); font-weight: 300; font-size: 48px; line-height: 1; color: var(--beige); }
 
   /* Eén spaardoel */
   .doel { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.1fr); gap: clamp(20px, 4vw, 56px); align-items: start; max-width: 1300px; width: 100%; margin: 0 auto; }
@@ -255,17 +255,13 @@
       const a = document.createElement('a');
       a.className = 'kaart'; a.href = '#' + encodeURIComponent(x.id);
       const p = pct(x);
-      a.innerHTML = varken(x.kleur) + '<div class="naam"></div><div class="bedrag"></div><div class="label"></div><div class="balkje"><i style="width:0"></i></div>';
+      a.innerHTML = varken(x.kleur) + '<div class="naam"></div>';
       a.querySelector('.naam').innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + (ICONEN[x.icoon] || ICONEN.ster) + '</svg>';
       a.querySelector('.naam').appendChild(document.createTextNode(x.naam));
-      a.querySelector('.bedrag').textContent = euro(som(x));
-      a.querySelector('.label').textContent = x.doel ? 'van ' + euro(x.doel) + ' · ' + Math.floor(p) + '%' : 'Doelbedrag volgt nog';
       a.setAttribute('aria-label', x.naam + ', ' + euro(som(x)) + ' gespaard');
-      if (!x.doel) a.querySelector('.balkje').hidden = true;
       w.appendChild(a);
       requestAnimationFrame(() => requestAnimationFrame(() => {
         zetPeil(a.querySelector('.varken'), x.doel ? p : (som(x) > 0 ? 12 : 0));
-        a.querySelector('.balkje i').style.width = Math.min(p || 0, 100) + '%';
       }));
     });
     if (geladen) {
