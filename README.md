@@ -6,6 +6,7 @@ Het keukenscherm van het gezin: een startscherm met tegels, en per app een eigen
 index.html          startscherm (klok, datum, tegels)
 fruit/              Mila's fruitmenu
 agenda/             gezinsagenda (Google Agenda)
+spaardoelen/        spaardoelen met spaarvarken (collectie spaardoelen)
 instellingen/       verbinding en sleutel nakijken, opslag testen
 shared/
   config.js         adres van de opslag (Apps Script)
