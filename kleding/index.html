@@ -116,6 +116,16 @@ h2{font-family:var(--serif);font-weight:400;font-size:24px;line-height:1.2;margi
 .sale .sa span+.btn,.sale .sa span~.btn{flex:0 0 auto;padding-inline:13px;}
 .note{font-size:12px;color:var(--navy-soft);text-align:center;margin:14px 8px 0;}
 .salebtn+.salebtn{margin-top:-4px;}
+.badge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--wit);color:var(--navy);font-size:11px;font-weight:500;margin-left:4px;}
+.nlijst{display:flex;flex-direction:column;gap:12px;}
+.nrij{background:var(--wit);border:1px solid var(--line);border-radius:var(--r-md);padding:12px;display:grid;grid-template-columns:140px minmax(0,1fr);gap:16px;align-items:start;transition:opacity .25s;}
+.nrij.weg{opacity:0;}
+.nrij .nfoto{width:140px;height:180px;object-fit:cover;border-radius:var(--r-sm);background:var(--room);}
+.nvelden{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px 12px;align-items:end;}
+.nnaam{grid-column:1/-1;font-family:var(--serif);font-size:18px;line-height:1.2;}
+.nacties{grid-column:1/-1;display:flex;align-items:center;justify-content:flex-end;gap:12px;}
+.nfout{font-size:12px;color:#B4473B;flex:1;}
+@media (max-width:560px){ .nrij{grid-template-columns:1fr;} .nrij .nfoto{width:100%;height:240px;object-fit:contain;} }
 .salebtn{display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;width:100%;background:var(--wit);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 14px;font-size:12px;color:var(--navy-soft);}
 .salebtn strong{font-weight:500;font-size:13.5px;color:var(--navy);}
 .salebtn span:last-child{font-size:22px;color:var(--navy);}
@@ -215,7 +225,7 @@ var MONTHS = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov",
 var WX_LABEL = {clear:"Zonnig",cloudy:"Half bewolkt",overcast:"Bewolkt",rain:"Regen",snow:"Sneeuw",storm:"Onweer"};
 var KID_COLORS = {mila:"var(--mila)", finn:"var(--finn)"};
 var CITY = "Oostende", LAT = 51.2154, LON = 2.9286;
-var ITEM_FIELDS = ['kid','foto','category','warmth','rain','season','brand','size','occasion','forSale','saleSince','status','statusSince','wegReden'];
+var ITEM_FIELDS = ['kid','foto','category','warmth','rain','season','brand','size','occasion','forSale','saleSince','status','statusSince','wegReden','fotoUrl','naam','nieuw'];
 
 /* De gegevens komen uit de gedeelde opslag van de hub (Google Sheet). */
 var state = {kids:[], closets:{}, weekPlan:{}};
@@ -297,7 +307,11 @@ var Fotos = (function(){
   };
 })();
 /* Een img-tag die zijn foto zelf ophaalt. */
-function img(it,cls,alt,extra){ return '<img'+(cls?' class="'+cls+'"':'')+' data-foto="'+esc(it.foto||'')+'" alt="'+esc(alt||it.category)+'"'+(extra||'')+'>'; }
+function img(it,cls,alt,extra){
+  // Foto op Drive (data-foto) of, voor geïmporteerde stukken, rechtstreeks van de webwinkel (fotoUrl).
+  if(!it.foto && it.fotoUrl && /^https:\/\//.test(it.fotoUrl)) return '<img'+(cls?' class="'+cls+'"':'')+' src="'+esc(it.fotoUrl)+'" referrerpolicy="no-referrer" alt="'+esc(alt||it.category)+'"'+(extra||'')+'>';
+  return '<img'+(cls?' class="'+cls+'"':'')+' data-foto="'+esc(it.foto||'')+'" alt="'+esc(alt||it.category)+'"'+(extra||'')+'>';
+}
 
 /* ---------- helpers ---------- */
 function $(id){ return document.getElementById(id); }
@@ -334,6 +348,10 @@ function setStatus(it, st, reden){
 }
 function ofStatus(kid,st){ return (state.closets[kid]||[]).filter(function(i){ return statusOf(i)===st; }); }
 function closetOf(kid){ return ofStatus(kid,'kast'); }
+/* Nieuw: stukken die nog bevestigd moeten worden of waar info ontbreekt. */
+var VERPLICHT=['category','warmth','season','occasion','brand','size'];
+function onvolledig(i){ return !!i.nieuw || VERPLICHT.some(function(k){ return !String(i[k]||'').trim(); }); }
+function nieuwOf(kid){ return (state.closets[kid]||[]).filter(function(i){ return statusOf(i)==='kast' && onvolledig(i); }); }
 function saleOf(kid){ return ofStatus(kid,'koop'); }
 function findItem(kidId,id){ var a=state.closets[kidId]||[]; for(var i=0;i<a.length;i++) if(a[i].id===id) return a[i]; return null; }
 function toast(msg){
@@ -559,11 +577,13 @@ function renderCloset(){
   if(!loaded.info||!loaded.kleding){ el.innerHTML=loading(); return; }
   if(!state.kids.length){ el.innerHTML=emptyKids(); bindEmptyKids(); return; }
   var items=closetOf(activeKidId), sale=saleOf(activeKidId), don=ofStatus(activeKidId,'doneren'), weg=ofStatus(activeKidId,'weg');
-  if(['kast','koop','doneren','weg'].indexOf(closetMode)<0) closetMode='kast';
+  var nieuw=nieuwOf(activeKidId);
+  if(['kast','koop','doneren','weg','nieuw'].indexOf(closetMode)<0 || (closetMode==='nieuw' && !nieuw.length)) closetMode='kast';
+  if(closetMode==='nieuw') return renderNieuw(el, nieuw);
   $('fab').hidden = closetMode!=='kast';
   var TITEL={kast:'Kleerkast',koop:'Te koop',doneren:'Doneren',weg:'Weg'}, LIJST={koop:sale,doneren:don,weg:weg};
   var aantal=closetMode==='kast'?items.length:LIJST[closetMode].length;
-  var h='<div class="head"><h2>'+TITEL[closetMode]+'</h2>'+(closetMode==='koop'&&sale.length?'<button class="btn sm" id="exp">Exporteren</button>':'<span class="label">'+aantal+' stuks</span>')+'</div>';
+  var h='<div class="head"><h2>'+TITEL[closetMode]+'</h2>'+(closetMode==='koop'&&sale.length?'<button class="btn sm" id="exp">Exporteren</button>':closetMode==='kast'&&nieuw.length?'<button class="btn sm" id="naarNieuw">Nieuw <span class="badge">'+nieuw.length+'</span></button>':'<span class="label">'+aantal+' stuks</span>')+'</div>';
   h+='<div class="seg mode" role="group" aria-label="Weergave kast">'+[['kast','In de kast',items.length],['koop','Te koop',sale.length],['doneren','Doneren',don.length],['weg','Weg',weg.length]].map(function(m){ return '<button class="segb" data-m="'+m[0]+'" aria-pressed="'+(closetMode===m[0])+'">'+m[1]+' <span>'+m[2]+'</span></button>'; }).join('')+'</div>';
   if(closetMode!=='kast'){
     var lijst=LIJST[closetMode].slice().sort(function(a,b){ return String(sinceOf(b)).localeCompare(String(sinceOf(a))); });
@@ -615,6 +635,48 @@ function renderCloset(){
     };
   });
   var ex=$('exp'); if(ex) ex.onclick=exportSale;
+  var nn=$('naarNieuw'); if(nn) nn.onclick=function(){ closetMode='nieuw'; saveUi(); renderActive(); };
+}
+
+/* ---------- Nieuw: snel info invullen in een lijst ---------- */
+var nieuwKlad={}, nieuwFout={}; // wat al getypt is maar nog niet opgeslagen, blijft staan bij het verversen
+function renderNieuw(el, lijst){
+  $('fab').hidden=true;
+  lijst=lijst.map(function(i){ return nieuwKlad[i.id] ? Object.assign({}, i, nieuwKlad[i.id]) : i; });
+  var sel=function(k,list,val,leeg){ return '<select class="sel" data-k="'+k+'">'+(val?'':'<option value="">'+leeg+'</option>')+list.map(function(o){ return '<option'+(o===val?' selected':'')+'>'+esc(o)+'</option>'; }).join('')+'</select>'; };
+  var h='<div class="head"><h2>Nieuw</h2><button class="btn quiet sm" id="nieuwTerug">Terug naar kast</button></div>';
+  h+='<p class="note" style="margin:0 0 14px;text-align:left">Vul aan wat ontbreekt of pas aan wat niet klopt, en tik op Opslaan. Volledige stukken verdwijnen uit deze lijst en staan gewoon in de kast.</p>';
+  h+='<div class="nlijst">'+lijst.map(function(i){
+    return '<div class="nrij" data-id="'+i.id+'">'+img(i,'nfoto','',' loading="lazy"')
+      +'<div class="nvelden">'+(i.naam?'<div class="nnaam">'+esc(i.naam)+'</div>':'')
+      +'<label class="field"><span class="label">Soort</span>'+sel('category',CATEGORIES,i.category,'Kies…')+'</label>'
+      +'<label class="field"><span class="label">Warmte</span>'+sel('warmth',WARMTHS,i.warmth,'Kies…')+'</label>'
+      +'<label class="field"><span class="label">Seizoen</span>'+sel('season',SEASONS,i.season,'Kies…')+'</label>'
+      +'<label class="field"><span class="label">Gelegenheid</span>'+sel('occasion',OCC_SET,i.occasion,'Kies…')+'</label>'
+      +'<label class="field"><span class="label">Merk</span><input type="text" data-k="brand" value="'+esc(i.brand||'')+'"></label>'
+      +'<label class="field"><span class="label">Maat</span><input type="text" data-k="size" value="'+esc(i.size||'')+'"></label>'
+      +'<label class="check"><input type="checkbox" data-k="rain"'+(i.rain?' checked':'')+'> Regenbestendig</label>'
+      +'<div class="nacties"><span class="nfout">'+esc(nieuwFout[i.id]||'')+'</span><button class="btn sm" data-a="ok">Opslaan</button></div>'
+      +'</div></div>';
+  }).join('')+'</div>';
+  el.innerHTML=h;
+  if(window.Fotos && Fotos.vul) Fotos.vul(el);
+  $('nieuwTerug').onclick=function(){ closetMode='kast'; saveUi(); renderActive(); };
+  el.querySelectorAll('.nrij').forEach(function(rij){
+    var id=rij.getAttribute('data-id'), it=findItem(activeKidId,id);
+    var lees=function(){ var o={}; rij.querySelectorAll('[data-k]').forEach(function(f){ var k=f.getAttribute('data-k'); o[k]= f.type==='checkbox' ? f.checked : f.value.trim(); }); return o; };
+    rij.addEventListener('change', function(){ nieuwKlad[id]=lees(); });
+    rij.addEventListener('input', function(){ nieuwKlad[id]=lees(); });
+    rij.querySelector('[data-a="ok"]').onclick=function(){
+      Object.assign(it, lees());
+      var mist=VERPLICHT.filter(function(k){ return !String(it[k]||'').trim(); });
+      if(mist.length){ nieuwFout[id]='Nog in te vullen: '+mist.map(function(k){ return {category:'soort',warmth:'warmte',season:'seizoen',occasion:'gelegenheid',brand:'merk',size:'maat'}[k]; }).join(', '); rij.querySelector('.nfout').textContent=nieuwFout[id]; saveItem(it); return; }
+      delete nieuwKlad[id]; delete nieuwFout[id];
+      delete it.nieuw; saveItem(it);
+      rij.classList.add('weg'); setTimeout(function(){ render(); }, 250);
+      toast('Opgeslagen.');
+    };
+  });
 }
 function fmtShort(isoStr){ var d=isoToDate(isoStr); return d.getDate()+' '+MONTHS[d.getMonth()]+' '+d.getFullYear(); }
 
