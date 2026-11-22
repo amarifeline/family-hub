@@ -148,7 +148,8 @@ tr.actie td { background: #F7F1E6; }
   function esc(s) { var e = document.createElement('span'); e.textContent = s == null ? '' : String(s); return e.innerHTML.replace(/"/g, '&quot;'); }
   function getal(v) { var n = parseFloat(v); return isFinite(n) && n >= 0 ? n : 0; }
   function fmt(n) { return (Math.round(n * 100) / 100).toString().replace('.', ','); }
-  function tekopen(p) { return Math.max(0, getal(p.minimum) - getal(p.voorraad)) + getal(p.lijst); }
+  // nodig = wat het weekmenu vraagt; wat je in huis hebt telt daarvoor mee. lijst = extra stuks via "Vaak gekocht".
+  function tekopen(p) { return Math.max(0, getal(p.minimum) + getal(p.nodig) - getal(p.voorraad)) + getal(p.lijst); }
   function sorteer(a, b) { return a.naam.localeCompare(b.naam, 'nl'); }
 
   function zetStatus(t) { var s = $('status'); s.textContent = t || ''; s.hidden = !t; }
@@ -173,8 +174,8 @@ tr.actie td { background: #F7F1E6; }
   function gekocht(id) {
     var p = vind(id); if (!p) return;
     var v = getal(p.voorraad) + tekopen(p);
-    p.voorraad = v; p.lijst = 0; render();
-    bijwerken(id, { voorraad: v, lijst: 0 });
+    p.voorraad = v; p.lijst = 0; p.nodig = 0; render();
+    bijwerken(id, { voorraad: v, lijst: 0, nodig: 0 });
   }
 
   /* ---------- weergave ---------- */
@@ -238,7 +239,7 @@ tr.actie td { background: #F7F1E6; }
     $('winkellijst').innerHTML = Object.keys(winkels).sort().map(function (w) { return '<option value="' + esc(w) + '">'; }).join('');
     if (!producten.length) { host.innerHTML = ''; return; }
     var rijen = producten.slice().sort(function (a, b) { return (a.categorie || '').localeCompare(b.categorie || '', 'nl') || sorteer(a, b); });
-    host.innerHTML = '<div class="tabelwrap"><table><thead><tr><th>Vaak</th><th>Product</th><th>Categorie</th><th>Eenheid</th><th>In huis</th><th>Minimum</th><th>Winkel</th><th>Te kopen</th><th></th></tr></thead><tbody>' +
+    host.innerHTML = '<div class="tabelwrap"><table><thead><tr><th>Vaak</th><th>Product</th><th>Categorie</th><th>Eenheid</th><th>In huis</th><th>Minimum</th><th>Weekmenu</th><th>Winkel</th><th>Te kopen</th><th></th></tr></thead><tbody>' +
       rijen.map(function (p) {
         var t = tekopen(p);
         return '<tr data-id="' + esc(p.id) + '"' + (t > 0 ? ' class="actie"' : '') + '>' +
@@ -248,6 +249,7 @@ tr.actie td { background: #F7F1E6; }
           '<td><select data-veld="eenheid" aria-label="Eenheid">' + opties(EENHEDEN, p.eenheid) + '</select></td>' +
           '<td class="getal"><input type="number" data-veld="voorraad" min="0" step="any" value="' + getal(p.voorraad) + '" aria-label="In huis"></td>' +
           '<td class="getal"><input type="number" data-veld="minimum" min="0" step="any" value="' + getal(p.minimum) + '" aria-label="Minimum"></td>' +
+          '<td class="getal"><input type="number" data-veld="nodig" min="0" step="any" value="' + getal(p.nodig) + '" aria-label="Nodig voor het weekmenu"></td>' +
           '<td><input type="text" data-veld="winkel" list="winkellijst" value="' + esc(p.winkel || '') + '" aria-label="Winkel" maxlength="40"></td>' +
           '<td class="koop' + (t > 0 ? '' : ' nul') + '">' + (t > 0 ? fmt(t) : '–') + '</td>' +
           '<td><button class="weg" data-weg="' + esc(p.id) + '">Verwijder</button></td></tr>';
@@ -284,7 +286,7 @@ tr.actie td { background: #F7F1E6; }
     var el = e.target, tr = el.closest('tr'); if (!tr || !el.dataset.veld) return;
     var p = vind(tr.dataset.id); if (!p) return;
     var v = el.dataset.veld, w = el.value;
-    if (v === 'voorraad' || v === 'minimum') w = getal(w);
+    if (v === 'voorraad' || v === 'minimum' || v === 'nodig') w = getal(w);
     else w = String(w).trim();
     if (v === 'naam' && !w) { el.value = p.naam; return; }
     p[v] = w;
