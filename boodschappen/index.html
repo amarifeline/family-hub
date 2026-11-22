@@ -24,6 +24,13 @@ button { cursor: pointer; }
 header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; border-bottom: 1px solid var(--beige); padding-bottom: 16px; }
 .links { display: flex; align-items: flex-end; gap: 20px; }
 h1 { font-family: var(--script); font-weight: 400; font-size: clamp(44px, 9vw, 68px); line-height: 1; margin: 0; color: var(--navy); }
+.rechts { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.bknop.stil { background: transparent; color: var(--navy); }
+#exp { border: 0; border-radius: 16px; padding: 26px; background: var(--wit); color: var(--navy); width: min(560px, 92vw); }
+#exp::backdrop { background: rgba(44, 62, 82, .35); }
+#exp h2 { font-family: var(--serif); font-weight: 400; font-size: 26px; margin: 0 0 10px; }
+#exp textarea { width: 100%; font: 14px/1.5 var(--sans); color: var(--navy); background: var(--room); border: 1px solid var(--lijn); border-radius: 8px; padding: 10px 12px; margin: 12px 0; resize: vertical; }
+.expknoppen { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .teller { font-size: 13px; color: var(--zacht); font-variant-numeric: tabular-nums; }
 
 nav { display: flex; gap: 0; border-bottom: 1px solid var(--lijn); }
@@ -96,8 +103,20 @@ tr.actie td { background: #F7F1E6; }
       <a class="knop" href="../#voeding">Terug</a>
       <h1>Boodschappen</h1>
     </div>
-    <div class="teller" id="teller" aria-live="polite"></div>
+    <div class="rechts"><div class="teller" id="teller" aria-live="polite"></div><button type="button" class="bknop stil" id="exporteer" hidden>Exporteren</button></div>
   </header>
+
+  <dialog id="exp">
+    <h2>Boodschappenlijst exporteren</h2>
+    <p class="hint">Deel de lijst naar <b>Notities</b> op je iPhone of iPad (of kopieer en plak hem in een notitie). Selecteer daar de producten en tik op de knop met het <b>vinkje</b> (☑) boven het toetsenbord: elke regel wordt een vakje om af te vinken.</p>
+    <textarea id="expTekst" readonly rows="10"></textarea>
+    <div class="expknoppen">
+      <button type="button" class="bknop" id="expDeel" hidden>Delen…</button>
+      <button type="button" class="bknop" id="expKopieer">Kopiëren</button>
+      <button type="button" class="bknop stil" id="expSluit">Sluiten</button>
+    </div>
+    <p class="hint" id="expMelding" aria-live="polite"></p>
+  </dialog>
 
   <nav aria-label="Weergave">
     <a href="#boodschappen" data-view="boodschappen">Lijst</a>
@@ -265,7 +284,40 @@ tr.actie td { background: #F7F1E6; }
   function renderTeller() {
     var n = producten.filter(function (p) { return tekopen(p) > 0; }).length;
     $('teller').textContent = geladen ? (n ? n + (n === 1 ? ' product' : ' producten') + ' te kopen' : 'Niets te kopen') : 'Laden…';
+    $('exporteer').hidden = !n;
   }
+
+  /* ---------- exporteren (bv. naar Apple Notities) ---------- */
+  function exportTekst() {
+    var open = producten.filter(function (p) { return tekopen(p) > 0; });
+    var winkels = {}; open.forEach(function (p) { winkels[(p.winkel || '').trim()] = 1; });
+    var meerdere = Object.keys(winkels).filter(Boolean).length > 1;
+    open.sort(function (a, b) {
+      var wa = (a.winkel || '').trim(), wb = (b.winkel || '').trim();
+      return (!wa - !wb) || wa.localeCompare(wb, 'nl') || (a.categorie || '').localeCompare(b.categorie || '', 'nl') || sorteer(a, b);
+    });
+    var d = new Date().toLocaleDateString('nl-BE', { day: 'numeric', month: 'long' });
+    return 'Boodschappen ' + d + '\n' + open.map(function (p) {
+      var w = (p.winkel || '').trim();
+      return p.naam + ' – ' + fmt(tekopen(p)) + ' ' + (p.eenheid || '') + (meerdere && w ? ' · ' + w : '');
+    }).join('\n');
+  }
+  $('exporteer').onclick = function () {
+    $('expTekst').value = exportTekst();
+    $('expDeel').hidden = !navigator.share;
+    $('expMelding').textContent = '';
+    $('exp').showModal();
+  };
+  $('expDeel').onclick = function () {
+    navigator.share({ title: 'Boodschappen', text: $('expTekst').value }).catch(function () {});
+  };
+  $('expKopieer').onclick = function () {
+    var t = $('expTekst').value;
+    var klaar = function () { $('expMelding').textContent = 'Gekopieerd. Plak de lijst in een nieuwe notitie.'; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(klaar, function () { $('expTekst').select(); document.execCommand('copy'); klaar(); });
+    else { $('expTekst').select(); document.execCommand('copy'); klaar(); }
+  };
+  $('expSluit').onclick = function () { $('exp').close(); };
   $('tabel').addEventListener('focusout', function () {
     setTimeout(function () { if (uitgesteld && !$('tabel').contains(document.activeElement)) { uitgesteld = false; render(); } }, 0);
   });
