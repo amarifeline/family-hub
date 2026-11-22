@@ -61,6 +61,8 @@ section.blok{background:var(--wit);border:1px solid var(--beige);border-radius:2
 .frigo{display:inline-flex;align-items:center;gap:8px;border:2px solid var(--beige);background:var(--wit);border-radius:999px;padding:6px 14px 6px 8px;font-family:var(--sans);font-size:12px;color:var(--navy);cursor:pointer;min-height:48px}
 .frigo svg{width:30px;height:30px}
 .frigo[aria-pressed="true"]{background:var(--roze);border-color:var(--navy)}
+.frigo.moetop[aria-pressed="true"]{background:var(--beige)}
+.fk-top{flex-wrap:wrap}
 .fk-voet{display:flex;justify-content:flex-end;margin-top:4px}
 .del{background:none;border:none;color:var(--navy);opacity:.45;font-family:var(--sans);font-size:11px;cursor:pointer;padding:10px}
 .del.zeker{opacity:1;color:#B4473B;font-weight:500}
@@ -100,7 +102,7 @@ svg.eigen{width:1.15em;height:1em;display:inline-block;vertical-align:top;overfl
   <div id="beheer" hidden>
     <section class="blok">
       <h2>Wat ligt er in de frigo?</h2>
-      <p class="uitleg">Tik op de <b>frigo</b> bij wat er deze week is. Kies met de smileys hoe graag ze het lust, en met de tekeningen hoe het klaargemaakt wordt. Groen = favoriet (twee keer per week), geel = gewoon, rood = lust ze niet (komt niet op het menu).</p>
+      <p class="uitleg">Tik op de <b>frigo</b> bij wat er deze week is. Kies met de smileys hoe graag ze het lust, en met de tekeningen hoe het klaargemaakt wordt. Groen = favoriet (twee keer per week), geel = gewoon, rood = lust ze niet (komt niet op het menu). Wordt iets bijna slecht? Tik op de <b>zandloper</b>: dan komt het eerst op het menu.</p>
       <div class="items" id="items"></div>
       <div class="nieuw" id="nieuw">
         <input class="e" id="n-icoon" placeholder="🍉" aria-label="Icoon">
@@ -141,6 +143,7 @@ const I={
   schijfjes:`<svg viewBox="0 0 40 40" fill="none" stroke="${NAVY}" stroke-width="2.4"><circle cx="11" cy="20" r="8"/><circle cx="20" cy="20" r="8" fill="#FCFBF8"/><circle cx="29" cy="20" r="8" fill="#FCFBF8"/><circle cx="29" cy="20" r="2.5" fill="${NAVY}" stroke="none"/></svg>`,
   vork:`<svg viewBox="0 0 40 40" fill="none" stroke="${NAVY}" stroke-width="2.6" stroke-linecap="round"><path d="M14 5 V14 M20 5 V14 M26 5 V14 M14 14 Q14 20 20 20 Q26 20 26 14 M20 20 V36"/></svg>`,
   geenvork:`<svg viewBox="0 0 40 40" fill="none" stroke-linecap="round"><path d="M14 5 V14 M20 5 V14 M26 5 V14 M14 14 Q14 20 20 20 Q26 20 26 14 M20 20 V36" stroke="${NAVY}" stroke-width="2.6"/><path d="M6 34 L34 6" stroke="#C9483B" stroke-width="3.4"/></svg>`,
+  moetop:`<svg viewBox="0 0 40 40" fill="none" stroke="${NAVY}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4 H29 M11 36 H29" /><path d="M13 4 C13 13 27 15 27 20 C27 25 13 27 13 36" fill="#FCFBF8"/><path d="M27 4 C27 13 13 15 13 20 C13 25 27 27 27 36" fill="#FCFBF8"/><path d="M16 32 Q20 28 24 32 Z" fill="${NAVY}"/></svg>`,
   frigo:`<svg viewBox="0 0 40 40" fill="none" stroke="${NAVY}" stroke-width="2.2" stroke-linejoin="round"><rect x="9" y="3" width="22" height="34" rx="4" fill="#FCFBF8"/><path d="M9 15 H31 M13 8 V11 M13 19 V25"/></svg>`
 };
 /* Eigen icoontjes voor wat geen emoji heeft. Gebruik als icoon: "eigen:rozijnen". */
@@ -183,8 +186,11 @@ function toon(v){
 function voorstel(){
   const sorted=[...fruit].sort((a,b)=>(a.volgorde??0)-(b.volgorde??0));
   const actief=sorted.filter(f=>f.frigo && f.lust!=="lust niet");
-  const fav=actief.filter(f=>f.lust==="favoriet"), rest=actief.filter(f=>f.lust!=="favoriet");
-  const reeks=[...fav];
+  // Wat bijna slecht wordt ("moet op") komt eerst, daarna de gewone volgorde.
+  const eerst=actief.filter(f=>f.voorrang);
+  const gewoon=actief.filter(f=>!f.voorrang);
+  const fav=gewoon.filter(f=>f.lust==="favoriet"), rest=gewoon.filter(f=>f.lust!=="favoriet");
+  const reeks=[...eerst,...fav];
   const n=Math.max(rest.length,fav.length);
   for(let i=0;i<n;i++){ if(rest[i]) reeks.push(rest[i]); if(fav[i]) reeks.push(fav[i]); }
   if(!reeks.length) return DAGEN.map(()=>null);
@@ -227,7 +233,8 @@ function renderBeheer(){
   const dis=magSchrijven?"":"disabled";
   box.innerHTML=sorted.map(f=>`<div class="fk${f.frigo?"":" uit"}" data-id="${esc(f.id)}">
     <div class="fk-top"><span class="fk-emoji" aria-hidden="true">${ico(f)}</span><span class="fk-naam">${esc(f.naam)}</span>
-      <button class="frigo" type="button" data-k="frigo" data-v="${!f.frigo}" aria-pressed="${!!f.frigo}" ${dis}>${I.frigo}${f.frigo?"in de frigo":"niet in de frigo"}</button></div>
+      <button class="frigo" type="button" data-k="frigo" data-v="${!f.frigo}" aria-pressed="${!!f.frigo}" ${dis}>${I.frigo}${f.frigo?"in de frigo":"niet in de frigo"}</button>
+      ${f.frigo?`<button class="frigo moetop" type="button" data-k="voorrang" data-v="${!f.voorrang}" aria-pressed="${!!f.voorrang}" title="Wordt bijna slecht: komt eerst op het menu" ${dis}>${I.moetop}${f.voorrang?"moet eerst op":"moet op?"}</button>`:""}</div>
     <div class="fk-opties">
       <div class="rij"><span class="lbl">Lust ik het?</span><span class="opts">${["favoriet","gewoon","lust niet"].map(v=>opt("lust",v,f.lust,I[v],v,dis)).join("")}</span></div>
       <div class="rij"><span class="lbl">Schil</span><span class="opts">${opt("schil",true,!!f.schil,I.geschild,"geschild",dis)}${opt("schil",false,!!f.schil,I.metschil,"met schil",dis)}</span></div>
@@ -268,7 +275,8 @@ document.getElementById("items").addEventListener("click",e=>{
   const k=b.dataset.k, val=JSON.parse(b.dataset.v);
   if(f[k]===val) return;
   teVerwijderen=null;
-  const n={...f,[k]:val}; fruit=fruit.map(x=>x.id===f.id?n:x); render(); bewaar(n);
+  const n={...f,[k]:val}; if(k==="frigo" && !val) n.voorrang=false;
+  fruit=fruit.map(x=>x.id===f.id?n:x); render(); bewaar(n);
 });
 document.getElementById("dagen").addEventListener("click",async e=>{
   const b=e.target.closest("[data-dag]"); if(!b) return;
