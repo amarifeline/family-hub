@@ -14,19 +14,25 @@
   .titel .label { margin-top: 18px; }
   .knop[disabled] { opacity: .5; }
 
-  .lijst { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr)); gap: clamp(12px, 1.6vw, 20px); align-content: start; }
-  .pakje { background: var(--wit); border: 1px solid var(--lijn); border-radius: var(--radius); padding: clamp(16px, 1.6vw, 24px); display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; align-items: start; }
-  .pakje .ikoon { grid-row: span 2; width: 64px; height: 64px; border-radius: 16px; background: var(--room); display: grid; place-items: center; }
-  .pakje .ikoon svg { width: 36px; height: 36px; stroke: var(--navy); fill: none; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
-  .pakje[data-st="klaar"] { border: 2px solid var(--navy); }
+  /* Eén lijst: elk pakje een rij, onder elkaar */
+  .lijst { background: var(--wit); border: 1px solid var(--lijn); border-radius: var(--radius); overflow: hidden; flex: none; }
+  .lijst:empty { display: none; }
+  .pakje { display: flex; align-items: center; gap: 12px clamp(14px, 1.6vw, 24px); flex-wrap: wrap; padding: clamp(12px, 1.2vw, 18px) clamp(16px, 1.8vw, 28px); border-bottom: 1px solid var(--lijn); }
+  .pakje:last-child { border-bottom: 0; }
+  .pakje[data-st="klaar"] { box-shadow: inset 6px 0 0 var(--navy); }
+  .pakje .ikoon { flex: none; width: 52px; height: 52px; border-radius: 14px; background: var(--room); display: grid; place-items: center; }
+  .pakje .ikoon svg { width: 30px; height: 30px; stroke: var(--navy); fill: none; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
   .pakje[data-st="klaar"] .ikoon, .pakje[data-st="vandaag"] .ikoon { background: var(--navy); }
   .pakje[data-st="klaar"] .ikoon svg, .pakje[data-st="vandaag"] .ikoon svg { stroke: var(--wit); }
-  .wat { font-family: var(--serif); font-size: clamp(21px, 1.8vw, 26px); line-height: 1.15; margin-top: 4px; overflow-wrap: anywhere; }
+  .info { flex: 1 1 160px; min-width: 0; }
+  .wat { font-family: var(--serif); font-size: clamp(20px, 1.6vw, 24px); line-height: 1.15; margin-top: 2px; overflow-wrap: anywhere; }
   .stand { font-family: var(--sans); font-size: 14px; color: var(--zacht); display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: 6px; }
   .chip { font-family: var(--sans); font-size: 12px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--navy); background: var(--room); border-radius: 999px; padding: 5px 12px; }
   .pakje[data-st="klaar"] .chip, .pakje[data-st="vandaag"] .chip { background: var(--navy); color: var(--wit); }
-  .acties { grid-column: 1 / -1; display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; align-items: center; }
-  .acties .vraag { font-family: var(--sans); font-size: 14px; flex: 1; min-width: 160px; }
+  .acties { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: flex-end; }
+  .pakje .acties { flex: 0 0 auto; margin-left: auto; }
+  .acties .vraag { font-family: var(--sans); font-size: 14px; }
+  @media (max-width: 640px) { .pakje .acties { flex-basis: 100%; justify-content: flex-start; margin-left: 66px; } }
   .leeg { font-family: var(--serif); font-size: clamp(22px, 2vw, 28px); color: var(--zacht); text-align: center; margin-top: 8vh; }
   .leeg small { display: block; font-family: var(--sans); font-size: 14px; margin-top: 14px; }
   .melding { font-family: var(--sans); font-size: 13px; text-align: center; min-height: 18px; color: var(--zacht); display: flex; gap: 12px; justify-content: center; align-items: center; }
@@ -124,8 +130,7 @@
       const ico = p.status === 'klaar' ? ICOON.winkel : p.status === 'besteld' ? ICOON.bon : ICOON.doos;
       return `<div class="pakje" data-st="${esc(p.status)}" data-id="${esc(p.id)}">
         <div class="ikoon"><svg viewBox="0 0 24 24" aria-hidden="true">${ico}</svg></div>
-        <div class="label">${esc(p.winkel)}</div>
-        <div><div class="wat">${esc(wat)}</div>
+        <div class="info"><div class="label">${esc(p.winkel)}</div><div class="wat">${esc(wat)}</div>
           <div class="stand"><span class="chip">${esc(STATUS[p.status] || p.status)}</span>${esc(wanneer(p))}</div></div>
         <div class="acties" data-rij="knoppen">${knop}<button class="knop" data-a="ontvangen">Ontvangen</button></div>
         <div class="acties" data-rij="vraag" hidden><span class="vraag">Is dit pakje binnen?</span><button class="knop" data-a="nee">Nee</button><button class="knop vol" data-a="ja">Ja, wegzetten</button></div>
