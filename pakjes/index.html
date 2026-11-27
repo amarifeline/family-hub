@@ -14,8 +14,18 @@
   .titel .label { margin-top: 18px; }
   .knop[disabled] { opacity: .5; }
 
-  /* Eén lijst: elk pakje een rij, onder elkaar */
-  .lijst { background: var(--wit); border: 1px solid var(--lijn); border-radius: var(--radius); overflow: hidden; flex: none; }
+  /* Twee blokken (af te halen, onderweg), elk pakje een rij */
+  #groepen { display: flex; flex-direction: column; gap: 22px; flex: none; }
+  .groep h2 { margin: 0 0 10px 4px; }
+  .vink { flex: none; width: 48px; height: 48px; border-radius: 50%; border: 2px solid var(--lijn); background: var(--wit); display: grid; place-items: center; cursor: pointer; padding: 0; transition: background .2s, border-color .2s; }
+  .vink svg { width: 26px; height: 26px; stroke: var(--wit); fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; opacity: 0; transition: opacity .2s; }
+  .vink:hover { border-color: var(--navy); }
+  .pakje.af .vink { background: var(--navy); border-color: var(--navy); }
+  .pakje.af .vink svg { opacity: 1; }
+  .pakje { transition: opacity .3s; }
+  .pakje.af { opacity: .45; }
+  .stand .tot { color: var(--navy); font-weight: 500; }
+  .lijst { list-style: none; margin: 0; padding: 0; background: var(--wit); border: 1px solid var(--lijn); border-radius: var(--radius); overflow: hidden; flex: none; }
   .lijst:empty { display: none; }
   .pakje { display: flex; align-items: center; gap: 12px clamp(14px, 1.6vw, 24px); flex-wrap: wrap; padding: clamp(12px, 1.2vw, 18px) clamp(16px, 1.8vw, 28px); border-bottom: 1px solid var(--lijn); }
   .pakje:last-child { border-bottom: 0; }
@@ -32,7 +42,7 @@
   .acties { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: flex-end; }
   .pakje .acties { flex: 0 0 auto; margin-left: auto; }
   .acties .vraag { font-family: var(--sans); font-size: 14px; }
-  @media (max-width: 640px) { .pakje .acties { flex-basis: 100%; justify-content: flex-start; margin-left: 66px; } }
+  @media (max-width: 640px) { .pakje .ikoon { display: none; } .pakje .acties { flex-basis: 100%; justify-content: flex-start; margin-left: 62px; } }
   .leeg { font-family: var(--serif); font-size: clamp(22px, 2vw, 28px); color: var(--zacht); text-align: center; margin-top: 8vh; }
   .leeg small { display: block; font-family: var(--sans); font-size: 14px; margin-top: 14px; }
   .melding { font-family: var(--sans); font-size: 13px; text-align: center; min-height: 18px; color: var(--zacht); display: flex; gap: 12px; justify-content: center; align-items: center; }
@@ -58,9 +68,9 @@
     <button class="knop" id="vernieuw">Vernieuwen</button>
   </div>
 
-  <main class="lijst" id="lijst"></main>
+  <main id="groepen"></main>
   <div class="leeg" id="leeg" hidden></div>
-  <p class="noot" id="noot" hidden>Een pakje verdwijnt vanzelf als de mail zegt dat het geleverd is, of twee dagen na de verwachte dag. Tik op Ontvangen om het meteen weg te zetten.</p>
+  <p class="noot" id="noot" hidden>Een pakje verdwijnt vanzelf als de mail zegt dat het geleverd is, of twee dagen na de verwachte dag. Vink een pakje af als het binnen is, dan verdwijnt het meteen.</p>
   <div class="melding" id="melding"></div>
 
   <dialog id="dlg">
@@ -107,7 +117,13 @@
   function zichtbaar() { return data ? data.pakjes.filter((p) => !verborgen[p.id]) : []; }
 
   function wanneer(p) {
-    if (p.status === 'klaar') return '';
+    if (p.status === 'klaar') {
+      if (!p.tot) return '';
+      if (p.tot < vandaag()) return 'ophaaltermijn verstreken (' + lang(p.tot) + ')';
+      if (p.tot === vandaag()) return 'vandaag laatste dag om op te halen';
+      if (p.tot === morgen()) return 'ophalen uiterlijk morgen';
+      return 'ophalen tot ' + lang(p.tot);
+    }
     if (!p.verwacht) return '';
     if (p.verwacht === vandaag()) return 'verwacht vandaag';
     if (p.verwacht === morgen()) return 'verwacht morgen';
@@ -115,35 +131,42 @@
     return 'verwacht ' + lang(p.verwacht);
   }
 
+  const VINK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+
+  function rijHtml(p) {
+    const wat = p.wat || (p.ordernr ? 'Bestelling ' + p.ordernr : 'Bestelling');
+    const knop = p.link ? `<button class="knop vol" data-a="volg">${p.volgen ? 'Volgen' : 'Bestelling bekijken'}</button>` : '';
+    const ico = p.status === 'klaar' ? ICOON.winkel : p.status === 'besteld' ? ICOON.bon : ICOON.doos;
+    const w = wanneer(p);
+    return `<li class="pakje" data-st="${esc(p.status)}" data-id="${esc(p.id)}">
+      <button class="vink" data-a="vink" aria-label="${p.status === 'klaar' ? 'Opgehaald' : 'Ontvangen'}: ${esc(wat)}">${VINK}</button>
+      <div class="ikoon"><svg viewBox="0 0 24 24" aria-hidden="true">${ico}</svg></div>
+      <div class="info"><div class="label">${esc(p.winkel)}</div><div class="wat">${esc(wat)}</div>
+        <div class="stand"><span class="chip">${esc(STATUS[p.status] || p.status)}</span>${w ? `<span class="${p.status === 'klaar' ? 'tot' : ''}">${esc(w)}</span>` : ''}</div></div>
+      ${knop ? `<div class="acties">${knop}</div>` : ''}
+    </li>`;
+  }
+
   function teken() {
-    const host = $('lijst'), lijst = zichtbaar();
+    const host = $('groepen'), lijst = zichtbaar();
     $('leeg').hidden = !data || lijst.length > 0;
     $('noot').hidden = !lijst.length;
-    if (data && !lijst.length) $('leeg').innerHTML = 'Er zijn geen pakjes onderweg.<small>We kijken in de bestel- en verzendmails van de laatste 30 dagen.</small>';
+    if (data && !lijst.length) $('leeg').innerHTML = 'Er zijn geen pakjes onderweg.<small>We kijken in het label Bestellingen en in de bestel- en verzendmails van de laatste 30 dagen.</small>';
+    const afhalen = lijst.filter((p) => p.status === 'klaar'), onderweg = lijst.filter((p) => p.status !== 'klaar');
     if (data) {
       const t = data.bijgewerkt ? new Date(data.bijgewerkt).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }) : '';
-      $('sub').textContent = (lijst.length === 1 ? '1 pakje verwacht' : lijst.length + ' pakjes verwacht') + (t ? ' · bijgewerkt ' + t : '') + (data.proef ? ' · proefmodus' : '');
+      const delen = [];
+      if (afhalen.length) delen.push(afhalen.length + ' af te halen');
+      if (onderweg.length) delen.push(onderweg.length + ' onderweg');
+      $('sub').textContent = (delen.join(' · ') || 'Geen pakjes') + (t ? ' · bijgewerkt ' + t : '') + (data.proef ? ' · proefmodus' : '');
     }
-    host.innerHTML = lijst.map((p) => {
-      const wat = p.wat || (p.ordernr ? 'Bestelling ' + p.ordernr : 'Bestelling');
-      const knop = p.link ? `<button class="knop vol" data-a="volg">${p.volgen ? 'Volgen' : 'Bestelling bekijken'}</button>` : '';
-      const ico = p.status === 'klaar' ? ICOON.winkel : p.status === 'besteld' ? ICOON.bon : ICOON.doos;
-      return `<div class="pakje" data-st="${esc(p.status)}" data-id="${esc(p.id)}">
-        <div class="ikoon"><svg viewBox="0 0 24 24" aria-hidden="true">${ico}</svg></div>
-        <div class="info"><div class="label">${esc(p.winkel)}</div><div class="wat">${esc(wat)}</div>
-          <div class="stand"><span class="chip">${esc(STATUS[p.status] || p.status)}</span>${esc(wanneer(p))}</div></div>
-        <div class="acties" data-rij="knoppen">${knop}<button class="knop" data-a="ontvangen">Ontvangen</button></div>
-        <div class="acties" data-rij="vraag" hidden><span class="vraag">Is dit pakje binnen?</span><button class="knop" data-a="nee">Nee</button><button class="knop vol" data-a="ja">Ja, wegzetten</button></div>
-      </div>`;
-    }).join('');
+    const groep = (titel, items) => items.length ? `<section class="groep"><h2 class="label">${titel}</h2><ul class="lijst">${items.map(rijHtml).join('')}</ul></section>` : '';
+    host.innerHTML = groep('Af te halen', afhalen) + groep('Onderweg', onderweg);
     host.querySelectorAll('.pakje').forEach((el) => {
       const p = lijst.find((x) => x.id === el.dataset.id);
       const q = (a) => el.querySelector('[data-a="' + a + '"]');
-      const rij = (r) => el.querySelector('[data-rij="' + r + '"]');
       if (q('volg')) q('volg').onclick = () => toonVolgen(p);
-      q('ontvangen').onclick = () => { rij('knoppen').hidden = true; rij('vraag').hidden = false; };
-      q('nee').onclick = () => { rij('knoppen').hidden = false; rij('vraag').hidden = true; };
-      q('ja').onclick = () => verberg(p.id);
+      q('vink').onclick = () => { el.classList.add('af'); setTimeout(() => verberg(p), 450); };
     });
   }
 
@@ -163,9 +186,10 @@
     try { await db.doc('pakjes/verborgen').set({ ids: verborgen }); }
     catch (e) { melding('Niet bewaard: ' + (e.message || 'geen verbinding')); }
   }
-  function verberg(id) {
+  function verberg(p) {
+    const id = p.id;
     verborgen[id] = vandaag(); teken(); bewaarVerborgen();
-    melding('Weggezet.', () => { delete verborgen[id]; teken(); bewaarVerborgen(); });
+    melding((p.status === 'klaar' ? 'Opgehaald: ' : 'Ontvangen: ') + (p.wat || p.winkel) + '.', () => { delete verborgen[id]; teken(); bewaarVerborgen(); });
   }
 
   function toonVolgen(p) {

@@ -120,7 +120,7 @@
         case 'pakjes': { // proefmodus heeft geen Gmail: twee voorbeelden
           const d = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
           return { proef: true, bijgewerkt: (() => { const n = new Date(); return new Date(n - n.getTimezoneOffset() * 6e4).toISOString().slice(0, 16); })(), pakjes: [
-            { id: 'proef1', winkel: 'Zara', wat: '', status: 'klaar', verwacht: '', ordernr: '54544683533', link: 'https://www.zara.com/', volgen: true, datum: d(-1) },
+            { id: 'proef1', winkel: 'Zara', wat: '', status: 'klaar', verwacht: '', tot: d(12), ordernr: '54544683533', link: 'https://www.zara.com/', volgen: true, datum: d(-1) },
             { id: 'proef2', winkel: 'Amazon', wat: 'Voorbeeldpakje', status: 'verzonden', verwacht: d(2), ordernr: '', link: 'https://www.amazon.com.be/', volgen: true, datum: d(0) },
           ] };
         }
