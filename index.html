@@ -63,6 +63,8 @@
   .tegel.later { opacity: 0.5; }
   .tegel .tlabel { position: absolute; left: 10px; right: 10px; bottom: clamp(12px, 1.6vw, 22px); text-align: center; font-family: var(--sans); font-size: clamp(11px, 0.9vw, 14px); letter-spacing: .12em; text-transform: uppercase; color: var(--zacht); }
   .tegel.met-label svg { width: 50%; height: 50%; margin-bottom: 10%; }
+  .tegel .teller { position: absolute; top: clamp(10px, 1.2vw, 18px); right: clamp(10px, 1.2vw, 18px); min-width: clamp(30px, 2.6vw, 40px); height: clamp(30px, 2.6vw, 40px); padding: 0 8px; border-radius: 999px; background: var(--navy); color: var(--wit); font-family: var(--sans); font-weight: 500; font-size: clamp(14px, 1.2vw, 18px); display: grid; place-items: center; font-variant-numeric: tabular-nums; }
+  .tegel .teller[hidden] { display: none; }
   button.tegel { font: inherit; cursor: pointer; padding: 0; }
   button.tegel:active { background: var(--room); }
   .groepkop { display: flex; align-items: center; gap: 18px; margin-bottom: calc(-1 * clamp(8px, 2vh, 24px)); }
@@ -120,6 +122,7 @@
     { titel: 'Kleding', href: 'kleding/', icoon: 'hanger' },
     { titel: 'Gezinsagenda', href: 'agenda/', icoon: 'agenda' },
     { titel: 'Spaardoelen', href: 'spaardoelen/', icoon: 'euro' },
+    { titel: 'Pakjes', href: 'pakjes/', icoon: 'enveloppe', teller: 'pakjes' },
   ];
 
   const ICONEN = {
@@ -130,6 +133,7 @@
     boek: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5Z"/><path d="M4 21a2 2 0 0 1 2-2h13v2H6M9 8h6M9 11h4"/>',
     bestek: '<path d="M7 3v7a2 2 0 0 0 2 2v9M11 3v7a2 2 0 0 1-2 2M9 3v6"/><path d="M17 21V3c-2 1.2-3 3.6-3 7v3h3"/>',
     euro: '<path d="M17.5 6.2a7 7 0 1 0 0 11.6"/><path d="M4.5 10.2h8.5M4.5 13.8h8.5"/>',
+    enveloppe: '<rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="m3.6 6.6 8.4 6.6 8.4-6.6"/>',
     agenda: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
   };
 
@@ -180,12 +184,33 @@
       el.href = a.groep ? '#' + a.id : a.href;
       el.setAttribute('aria-label', a.titel);
       el.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICONEN[a.icoon] + '</svg>';
+      if (a.teller) { const t = document.createElement('span'); t.className = 'teller'; t.dataset.teller = a.teller; t.hidden = true; el.appendChild(t); }
       if (a.label) { const l = document.createElement('span'); l.className = 'tlabel'; l.textContent = a.titel; el.appendChild(l); el.classList.add('met-label'); }
       wrap.appendChild(el);
     });
   }
   tegels();
-  window.addEventListener('hashchange', tegels);
+  window.addEventListener('hashchange', () => { tegels(); toonTellers(); });
+
+  // Bolletje op de tegel Pakjes: hoeveel pakjes we nog verwachten (zonder wat we al als ontvangen aantikten).
+  const tellers = {};
+  function toonTellers() {
+    document.querySelectorAll('[data-teller]').forEach((el) => {
+      const n = tellers[el.dataset.teller] || 0;
+      el.textContent = n; el.hidden = !n;
+      el.parentElement.setAttribute('aria-label', el.parentElement.getAttribute('aria-label').replace(/ \(\d+\)$/, '') + (n ? ' (' + n + ')' : ''));
+    });
+  }
+  async function telPakjes() {
+    try {
+      const [r, v] = await Promise.all([hubDb.rpc('pakjes', {}), hubDb.db.doc('pakjes/verborgen').get()]);
+      const weg = (v.exists && v.data().ids) || {};
+      tellers.pakjes = r.pakjes.filter((p) => !weg[p.id]).length;
+      toonTellers();
+    } catch (e) { /* Gmail nog niet gekoppeld of geen verbinding: geen bolletje */ }
+  }
+  telPakjes();
+  setInterval(telPakjes, 15 * 60000);
   // Na 3 minuten niets aanraken terug naar het hoofdscherm.
   let rust;
   function wacht() { clearTimeout(rust); if (location.hash) rust = setTimeout(() => { location.hash = ''; }, 3 * 60000); }

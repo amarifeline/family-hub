@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Pakjes</title>
+<link rel="stylesheet" href="../shared/huisstijl.css">
+<style>
+  body { padding: var(--gutter); display: flex; flex-direction: column; min-height: 100vh; gap: 22px; }
+  [hidden] { display: none !important; }
+  .balk { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .titel { flex: 1; min-width: 200px; }
+  .titel h1 { font-family: var(--script); font-weight: normal; font-size: clamp(48px, 6vw, 76px); margin: 0; line-height: 1; }
+  .titel .label { margin-top: 18px; }
+  .knop[disabled] { opacity: .5; }
+
+  .lijst { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr)); gap: clamp(12px, 1.6vw, 20px); align-content: start; }
+  .pakje { background: var(--wit); border: 1px solid var(--lijn); border-radius: var(--radius); padding: clamp(16px, 1.6vw, 24px); display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; align-items: start; }
+  .pakje .ikoon { grid-row: span 2; width: 64px; height: 64px; border-radius: 16px; background: var(--room); display: grid; place-items: center; }
+  .pakje .ikoon svg { width: 36px; height: 36px; stroke: var(--navy); fill: none; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+  .pakje[data-st="klaar"] { border: 2px solid var(--navy); }
+  .pakje[data-st="klaar"] .ikoon, .pakje[data-st="vandaag"] .ikoon { background: var(--navy); }
+  .pakje[data-st="klaar"] .ikoon svg, .pakje[data-st="vandaag"] .ikoon svg { stroke: var(--wit); }
+  .wat { font-family: var(--serif); font-size: clamp(21px, 1.8vw, 26px); line-height: 1.15; margin-top: 4px; overflow-wrap: anywhere; }
+  .stand { font-family: var(--sans); font-size: 14px; color: var(--zacht); display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: 6px; }
+  .chip { font-family: var(--sans); font-size: 12px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--navy); background: var(--room); border-radius: 999px; padding: 5px 12px; }
+  .pakje[data-st="klaar"] .chip, .pakje[data-st="vandaag"] .chip { background: var(--navy); color: var(--wit); }
+  .acties { grid-column: 1 / -1; display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; align-items: center; }
+  .acties .vraag { font-family: var(--sans); font-size: 14px; flex: 1; min-width: 160px; }
+  .leeg { font-family: var(--serif); font-size: clamp(22px, 2vw, 28px); color: var(--zacht); text-align: center; margin-top: 8vh; }
+  .leeg small { display: block; font-family: var(--sans); font-size: 14px; margin-top: 14px; }
+  .melding { font-family: var(--sans); font-size: 13px; text-align: center; min-height: 18px; color: var(--zacht); display: flex; gap: 12px; justify-content: center; align-items: center; }
+  .melding button { font-family: var(--sans); font-size: 13px; font-weight: 500; color: var(--navy); background: none; border: 0; text-decoration: underline; min-height: 44px; cursor: pointer; }
+  .noot { font-family: var(--serif); font-size: 16px; color: var(--zacht); text-align: center; margin: 0; }
+
+  dialog { border: 0; border-radius: var(--radius); padding: 28px; background: var(--wit); color: var(--navy); width: min(480px, 94vw); text-align: center; }
+  dialog::backdrop { background: rgba(44, 62, 82, .35); }
+  dialog h2 { font-family: var(--serif); font-weight: normal; font-size: 28px; margin: 0 0 6px; }
+  .qr { width: min(300px, 70vw); margin: 18px auto 10px; }
+  .qr svg { width: 100%; height: auto; display: block; }
+  .qrtekst { font-family: var(--sans); font-size: 14px; color: var(--zacht); margin: 0 0 20px; }
+  dialog .acties { justify-content: center; }
+</style>
+</head>
+<body data-home="../" data-terug="5">
+  <div class="balk">
+    <a class="knop" href="../">Terug</a>
+    <div class="titel">
+      <h1>Pakjes</h1>
+      <div class="label" id="sub">Even kijken in de mailbox…</div>
+    </div>
+    <button class="knop" id="vernieuw">Vernieuwen</button>
+  </div>
+
+  <main class="lijst" id="lijst"></main>
+  <div class="leeg" id="leeg" hidden></div>
+  <p class="noot" id="noot" hidden>Een pakje verdwijnt vanzelf als de mail zegt dat het geleverd is, of twee dagen na de verwachte dag. Tik op Ontvangen om het meteen weg te zetten.</p>
+  <div class="melding" id="melding"></div>
+
+  <dialog id="dlg">
+    <h2 id="dTitel"></h2>
+    <div class="label" id="dSub"></div>
+    <div class="qr" id="dQr"></div>
+    <p class="qrtekst">Scan met je gsm om het pakje te volgen.</p>
+    <div class="acties">
+      <button class="knop" id="dOpen">Open op dit scherm</button>
+      <button class="knop vol" id="dSluit">Sluiten</button>
+    </div>
+  </dialog>
+
+<script src="../shared/config.js"></script>
+<script src="../shared/hub-db.js"></script>
+<script src="../shared/kiosk.js"></script>
+<script src="../shared/qrcode.js"></script>
+<script>
+  // Pakjes: komt van de server (hubDb.rpc('pakjes')), die de bestel- en verzendmails in Gmail leest.
+  // Wat we zelf als "ontvangen" aantikken, staat in pakjes/verborgen = { ids: { <id>: 'yyyy-mm-dd' } }.
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const pad = (n) => String(n).padStart(2, '0');
+  const iso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const vandaag = () => iso(new Date());
+  const morgen = () => { const d = new Date(); d.setDate(d.getDate() + 1); return iso(d); };
+  const lang = (s) => new Date(s + 'T12:00:00').toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  const STATUS = { besteld: 'Besteld', verzonden: 'Onderweg', vandaag: 'Komt vandaag', klaar: 'Ligt klaar om af te halen' };
+  const ICOON = {
+    doos: '<path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5v-9Z"/><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9M7.8 5.2l8.5 4.6"/>',
+    winkel: '<path d="M4 9.5V20h16V9.5"/><path d="M3 9.5 4.5 4h15L21 9.5c0 1.4-1.1 2.5-2.5 2.5S16 10.9 16 9.5c0 1.4-1.1 2.5-2.5 2.5h-3C9.1 12 8 10.9 8 9.5 8 10.9 6.9 12 5.5 12S3 10.9 3 9.5Z"/><path d="M10 20v-5h4v5"/>',
+    bon: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 8h6M9 12h6"/>',
+  };
+  const CACHE = 'hub.pakjes';
+
+  let db = null, data = null, verborgen = {}, bezig = false, openLink = null;
+
+  function laatsteStand() {
+    try { return JSON.parse(localStorage.getItem(CACHE) || 'null'); } catch (e) { return null; }
+  }
+  function bewaar(d) { try { localStorage.setItem(CACHE, JSON.stringify(d)); } catch (e) { /* geen opslag */ } }
+
+  function zichtbaar() { return data ? data.pakjes.filter((p) => !verborgen[p.id]) : []; }
+
+  function wanneer(p) {
+    if (p.status === 'klaar') return '';
+    if (!p.verwacht) return '';
+    if (p.verwacht === vandaag()) return 'verwacht vandaag';
+    if (p.verwacht === morgen()) return 'verwacht morgen';
+    if (p.verwacht < vandaag()) return 'had er ' + lang(p.verwacht) + ' moeten zijn';
+    return 'verwacht ' + lang(p.verwacht);
+  }
+
+  function teken() {
+    const host = $('lijst'), lijst = zichtbaar();
+    $('leeg').hidden = !data || lijst.length > 0;
+    $('noot').hidden = !lijst.length;
+    if (data && !lijst.length) $('leeg').innerHTML = 'Er zijn geen pakjes onderweg.<small>We kijken in de bestel- en verzendmails van de laatste 30 dagen.</small>';
+    if (data) {
+      const t = data.bijgewerkt ? new Date(data.bijgewerkt).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }) : '';
+      $('sub').textContent = (lijst.length === 1 ? '1 pakje verwacht' : lijst.length + ' pakjes verwacht') + (t ? ' · bijgewerkt ' + t : '') + (data.proef ? ' · proefmodus' : '');
+    }
+    host.innerHTML = lijst.map((p) => {
+      const wat = p.wat || (p.ordernr ? 'Bestelling ' + p.ordernr : 'Bestelling');
+      const knop = p.link ? `<button class="knop vol" data-a="volg">${p.volgen ? 'Volgen' : 'Bestelling bekijken'}</button>` : '';
+      const ico = p.status === 'klaar' ? ICOON.winkel : p.status === 'besteld' ? ICOON.bon : ICOON.doos;
+      return `<div class="pakje" data-st="${esc(p.status)}" data-id="${esc(p.id)}">
+        <div class="ikoon"><svg viewBox="0 0 24 24" aria-hidden="true">${ico}</svg></div>
+        <div class="label">${esc(p.winkel)}</div>
+        <div><div class="wat">${esc(wat)}</div>
+          <div class="stand"><span class="chip">${esc(STATUS[p.status] || p.status)}</span>${esc(wanneer(p))}</div></div>
+        <div class="acties" data-rij="knoppen">${knop}<button class="knop" data-a="ontvangen">Ontvangen</button></div>
+        <div class="acties" data-rij="vraag" hidden><span class="vraag">Is dit pakje binnen?</span><button class="knop" data-a="nee">Nee</button><button class="knop vol" data-a="ja">Ja, wegzetten</button></div>
+      </div>`;
+    }).join('');
+    host.querySelectorAll('.pakje').forEach((el) => {
+      const p = lijst.find((x) => x.id === el.dataset.id);
+      const q = (a) => el.querySelector('[data-a="' + a + '"]');
+      const rij = (r) => el.querySelector('[data-rij="' + r + '"]');
+      if (q('volg')) q('volg').onclick = () => toonVolgen(p);
+      q('ontvangen').onclick = () => { rij('knoppen').hidden = true; rij('vraag').hidden = false; };
+      q('nee').onclick = () => { rij('knoppen').hidden = false; rij('vraag').hidden = true; };
+      q('ja').onclick = () => verberg(p.id);
+    });
+  }
+
+  function melding(tekst, ongedaan) {
+    const m = $('melding');
+    m.innerHTML = '';
+    if (!tekst) return;
+    const s = document.createElement('span'); s.textContent = tekst; m.appendChild(s);
+    if (ongedaan) { const b = document.createElement('button'); b.textContent = 'Ongedaan maken'; b.onclick = () => { ongedaan(); melding(''); }; m.appendChild(b); }
+    clearTimeout(melding.t); melding.t = setTimeout(() => { m.innerHTML = ''; }, 8000);
+  }
+
+  async function bewaarVerborgen() {
+    // Opruimen: wat al 60 dagen weg is, hoeft niet meer onthouden te worden.
+    const grens = new Date(); grens.setDate(grens.getDate() - 60);
+    Object.keys(verborgen).forEach((k) => { if (verborgen[k] < iso(grens)) delete verborgen[k]; });
+    try { await db.doc('pakjes/verborgen').set({ ids: verborgen }); }
+    catch (e) { melding('Niet bewaard: ' + (e.message || 'geen verbinding')); }
+  }
+  function verberg(id) {
+    verborgen[id] = vandaag(); teken(); bewaarVerborgen();
+    melding('Weggezet.', () => { delete verborgen[id]; teken(); bewaarVerborgen(); });
+  }
+
+  function toonVolgen(p) {
+    openLink = p.link;
+    $('dTitel').textContent = p.wat || (p.ordernr ? 'Bestelling ' + p.ordernr : p.winkel);
+    $('dSub').textContent = p.winkel + (p.ordernr && p.wat ? ' · ' + p.ordernr : '');
+    try {
+      const qr = qrcode(0, 'M'); qr.addData(p.link); qr.make();
+      $('dQr').innerHTML = qr.createSvgTag({ cellSize: 6, margin: 3, scalable: true });
+    } catch (e) { $('dQr').innerHTML = ''; }
+    $('dlg').showModal();
+  }
+  $('dSluit').onclick = () => $('dlg').close();
+  $('dOpen').onclick = () => {
+    // Nieuw venster; het keukenscherm sluit het zelf na 3 minuten (er is daar geen knop om terug te gaan).
+    const w = window.open(openLink, '_blank');
+    if (w) { try { w.opener = null; } catch (e) { /* ok */ } setTimeout(() => { try { w.close(); } catch (e) { /* ok */ } }, 3 * 60000); }
+    $('dlg').close();
+  };
+
+  async function laad(vers) {
+    if (bezig) return;
+    bezig = true; $('vernieuw').disabled = true;
+    if (vers) $('sub').textContent = 'Even kijken in de mailbox…';
+    try {
+      data = await hubDb.rpc('pakjes', { vers: !!vers });
+      bewaar(data); melding('');
+    } catch (e) {
+      const msg = String(e && e.message || '');
+      if (/Onbekende opdracht/.test(msg)) melding('Het Apps Script kent pakjes nog niet. Zie README, stap "Pakjes uit Gmail".');
+      else if (/toestemming|permission|authoriz|Gmail/i.test(msg)) melding('De hub mag Gmail nog niet lezen. Voer testPakjes één keer uit in Apps Script.');
+      else melding('Kon de mailbox niet bekijken' + (msg ? ': ' + msg : '.'));
+      if (!data) $('sub').textContent = 'Geen verbinding met de mailbox';
+    } finally {
+      bezig = false; $('vernieuw').disabled = false; teken();
+    }
+  }
+  $('vernieuw').onclick = () => laad(true);
+
+  (async () => {
+    data = laatsteStand(); teken();
+    db = await claude.use('db');
+    db.doc('pakjes/verborgen').onSnapshot((s) => { verborgen = (s.exists && s.data().ids) ? Object.assign({}, s.data().ids) : {}; teken(); }, () => {});
+    laad(false);
+    setInterval(() => laad(false), 15 * 60000);
+  })();
+</script>
+</body>
+</html>

@@ -7,12 +7,14 @@ index.html          startscherm (klok, datum, tegels)
 fruit/              Mila's fruitmenu
 agenda/             gezinsagenda (Google Agenda)
 spaardoelen/        spaardoelen met spaarvarken (collectie spaardoelen)
+pakjes/             bestellingen die we nog verwachten, uit Gmail (met QR-code om te volgen)
 instellingen/       verbinding en sleutel nakijken, opslag testen
 shared/
   config.js         adres van de opslag (Apps Script)
   hub-db.js         de opslag, zelfde aanroepen als in Claude-artefacts
   kiosk.js          keukengedrag: geen menu bij lang drukken, na 3 min terug naar start
   huisstijl.css     kleuren en lettertypes
+  qrcode.js         QR-codes maken (qrcode-generator van Kazuhiko Arase, MIT-licentie)
   Miltona.otf       lettertype voor namen
 ```
 
@@ -49,6 +51,24 @@ De tabbladen (`fruit`, `week`, …) maakt het script zelf aan bij de eerste keer
    `https://<jouw-gebruikersnaam>.github.io/family-hub/?k=JOUW-SLEUTEL`
    Het toestel onthoudt de sleutel en haalt hem uit de adresbalk. (Of plak hem in **Instellingen**.)
 3. Ga naar **Instellingen** en tik op **Test schrijven en lezen**. Je ziet "Gelukt" en hoe lang het duurde (meestal 1 à 2 seconden).
+
+## Pakjes uit Gmail
+
+De tegel met de enveloppe toont de bestellingen die nog onderweg zijn. Het Apps Script leest daarvoor de bestel- en verzendmails van de laatste 30 dagen (Amazon, Zara, bol, DreamLand, bpost, PostNL, DHL, DPD, GLS, …). Het verandert niets in Gmail, en de hub krijgt enkel een samenvatting: winkel, wat, stand, verwachte dag en de link om te volgen.
+
+Eenmalig instellen:
+
+1. Open in Apps Script het bestand `Code.gs` en vervang de inhoud door de nieuwe versie uit het Claude-project (`claude/apps-script-Code.gs`).
+2. Klik naast **Bestanden** op **+ → Script**, noem het `Pakjes` en plak de inhoud van `claude/apps-script-Pakjes.gs`. Opslaan.
+3. Kies bovenaan de functie **testPakjes** en klik op **Uitvoeren**. Google vraagt nu toestemming om Gmail te lezen: zelfde stappen als bij de sleutel. In het logboek zie je welke pakjes het vond.
+4. **Implementeren → Implementaties beheren → potlood → Versie: Nieuwe versie → Implementeren.**
+
+Goed om te weten:
+- Op het keukenscherm scan je de QR-code met je gsm om een pakje te volgen. **Open op dit scherm** opent de pagina van de vervoerder; dat venster sluit vanzelf na 3 minuten.
+- Een pakje verdwijnt als er een mail komt dat het geleverd is, twee dagen na de verwachte dag (Amazon stuurt geen leveringsmail), of als je op **Ontvangen** tikt.
+- Eigen verkopen (Vinted), retours en Collect&Go van Delhaize worden overgeslagen.
+- Gmail wordt hoogstens om het kwartier gelezen; **Vernieuwen** kijkt meteen opnieuw.
+- Iedereen met de sleutel ziet dus ook welke bestellingen er onderweg zijn.
 
 ## Goed om te weten
 

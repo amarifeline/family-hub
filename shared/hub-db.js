@@ -117,6 +117,13 @@
           s.docs[p] = merge(s.docs[p], req.data); break;
         case 'delete': delete s.docs[p]; break;
         case 'agenda': return { events: [] }; // proefmodus heeft geen Google Agenda
+        case 'pakjes': { // proefmodus heeft geen Gmail: twee voorbeelden
+          const d = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+          return { proef: true, bijgewerkt: (() => { const n = new Date(); return new Date(n - n.getTimezoneOffset() * 6e4).toISOString().slice(0, 16); })(), pakjes: [
+            { id: 'proef1', winkel: 'Zara', wat: '', status: 'klaar', verwacht: '', ordernr: '54544683533', link: 'https://www.zara.com/', volgen: true, datum: d(-1) },
+            { id: 'proef2', winkel: 'Amazon', wat: 'Voorbeeldpakje', status: 'verzonden', verwacht: d(2), ordernr: '', link: 'https://www.amazon.com.be/', volgen: true, datum: d(0) },
+          ] };
+        }
         case 'foto': {
           const id = 'proef' + Date.now() + Math.floor(Math.random() * 1e4);
           s.fotos = s.fotos || {}; s.fotos[id] = req.data; local.save(s); return { id };
@@ -448,7 +455,7 @@
     hasKey: () => !!store.get('hub.key'),
     ping: () => call({ op: 'revs' }, false),
     // Eigen opdrachten van de server, bv. de gezinsagenda: hubDb.rpc('agenda', {van, tot}).
-    rpc: (op, args) => call(Object.assign({}, args, { op }), op === 'agenda' || op === 'fotos'),
+    rpc: (op, args) => call(Object.assign({}, args, { op }), op === 'agenda' || op === 'fotos' || op === 'pakjes'),
   });
 
   // Zelfde ingang als in Claude-artefacts, zodat hun code hier zo goed als ongewijzigd draait.
