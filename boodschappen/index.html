@@ -94,6 +94,16 @@ td.koop.nul { color: var(--lijn); font-weight: 300; }
 .ster[aria-pressed="true"] { color: var(--navy); }
 .weg { background: transparent; border: 0; padding: 10px; color: var(--zacht); font-size: 12px; }
 tr.actie td { background: #F7F1E6; }
+.tegel.vt { min-height: 150px; }
+.tegel.vt.aan { border-color: #B4473B; }
+.vtgetal { font-family: var(--sans); font-weight: 300; font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; }
+.vtgetal small { font-size: 13px; color: var(--zacht); }
+.vtknop { display: flex; gap: 8px; }
+.pm { flex: 1; min-height: 44px; border-radius: 999px; border: 1px solid var(--lijn); background: var(--room); font-size: 22px; line-height: 1; color: var(--navy); }
+.pm:active { background: var(--beige); }
+h2.sub { font-family: var(--serif); font-weight: 400; font-size: 24px; margin: 32px 0 12px; }
+.nieuw.snel .breed { grid-column: span 2; }
+@media (max-width: 560px) { .nieuw.snel .breed { grid-column: auto; } }
 </style>
 </head>
 <body data-home="../">
@@ -120,30 +130,34 @@ tr.actie td { background: #F7F1E6; }
 
   <nav aria-label="Weergave">
     <a href="#boodschappen" data-view="boodschappen">Lijst</a>
-    <a href="#vaak" data-view="vaak">Vaak gekocht</a>
-    <a href="#voorraad" data-view="voorraad">Voorraad</a>
+    <a href="#voorraad" data-view="voorraad">Vaste voorraad</a>
   </nav>
 
   <p class="status" id="status" hidden></p>
 
   <section id="v-boodschappen" hidden>
-    <div id="lijst"></div>
-  </section>
-
-  <section id="v-vaak" hidden>
-    <p class="hint" style="margin-bottom:14px">Tik op een product om het op de lijst te zetten. Tik nog eens voor een extra stuk.</p>
-    <div id="tegels"></div>
+    <form class="nieuw snel" id="snel" autocomplete="off">
+      <div class="veld breed"><label for="s-naam">Iets op de lijst zetten</label><input type="text" id="s-naam" required maxlength="80" list="productlijst" placeholder="bv. Bananen"></div>
+      <div class="veld"><label for="s-aantal">Aantal</label><input type="number" id="s-aantal" min="0" step="any" value="1"></div>
+      <div class="veld"><label for="s-eenheid">Eenheid</label><select id="s-eenheid"></select></div>
+      <div class="veld"><label for="s-winkel">Winkel</label><input type="text" id="s-winkel" list="winkellijst" maxlength="40" placeholder="mag leeg"></div>
+      <div class="veld"><button type="submit" class="bknop">Toevoegen</button></div>
+    </form>
+    <datalist id="productlijst"></datalist>
+    <div id="lijst" style="margin-top:20px"></div>
   </section>
 
   <section id="v-voorraad" hidden>
+    <p class="hint" style="margin-bottom:14px">Spullen die je altijd in huis wilt hebben en die niet bederven, zoals toiletpapier, wasmiddel of vaatwastabletten. Pas met − en + aan hoeveel je nog hebt. Zakt iets onder het minimum, dan komt het vanzelf op de lijst.</p>
+    <div id="tegels"></div>
+    <h2 class="sub">Vaste voorraad beheren</h2>
     <form class="nieuw" id="nieuw" autocomplete="off">
-      <div class="veld"><label for="n-naam">Product</label><input type="text" id="n-naam" required maxlength="80" placeholder="Melk halfvol 1L"></div>
+      <div class="veld"><label for="n-naam">Product</label><input type="text" id="n-naam" required maxlength="80" placeholder="Toiletpapier"></div>
       <div class="veld"><label for="n-cat">Categorie</label><select id="n-cat"></select></div>
       <div class="veld"><label for="n-eenheid">Eenheid</label><select id="n-eenheid"></select></div>
       <div class="veld"><label for="n-voorraad">In huis</label><input type="number" id="n-voorraad" min="0" step="any" value="0"></div>
       <div class="veld"><label for="n-min">Minimum</label><input type="number" id="n-min" min="0" step="any" value="1"></div>
       <div class="veld"><label for="n-winkel">Winkel</label><input type="text" id="n-winkel" list="winkellijst" maxlength="40" placeholder="Delhaize"></div>
-      <label class="vink-veld"><input type="checkbox" id="n-vaak"> Vaak gekocht</label>
       <div class="veld"><button type="submit" class="bknop">Toevoegen</button></div>
     </form>
     <datalist id="winkellijst"></datalist>
@@ -160,16 +174,23 @@ tr.actie td { background: #F7F1E6; }
   var EENHEDEN = ["stuks","kg","g","L","ml","pak","fles","rol"];
   var GEEN_WINKEL = "Nog geen winkel";
 
-  var db = null, producten = [], geladen = false, kanSchrijven = true;
+  var db = null, producten = [], geladen = false;
   var wachtrij = {}; // per product één schrijfactie tegelijk
 
   function $(id) { return document.getElementById(id); }
   function esc(s) { var e = document.createElement('span'); e.textContent = s == null ? '' : String(s); return e.innerHTML.replace(/"/g, '&quot;'); }
   function getal(v) { var n = parseFloat(v); return isFinite(n) && n >= 0 ? n : 0; }
   function fmt(n) { return (Math.round(n * 100) / 100).toString().replace('.', ','); }
-  // nodig = wat het weekmenu vraagt; wat je in huis hebt telt daarvoor mee. lijst = extra stuks via "Vaak gekocht".
-  function tekopen(p) { return Math.max(0, getal(p.minimum) + getal(p.nodig) - getal(p.voorraad)) + getal(p.lijst); }
   function sorteer(a, b) { return a.naam.localeCompare(b.naam, 'nl'); }
+
+  /* Twee soorten producten:
+     - vaste voorraad (vast): altijd in huis, met een minimum. In huis telt mee, ook voor wat het weekmenu vraagt (nodig).
+     - gewone boodschappen: staan op de lijst zolang ze nodig zijn (weekmenu) of manueel toegevoegd (lijst); gekocht = weg. */
+  function vast(p) { return p.vast === true || (p.vast === undefined && getal(p.minimum) > 0); }
+  function tekopen(p) {
+    if (vast(p)) return Math.max(0, getal(p.minimum) + getal(p.nodig) - getal(p.voorraad)) + getal(p.lijst);
+    return getal(p.nodig) + getal(p.lijst);
+  }
 
   function zetStatus(t) { var s = $('status'); s.textContent = t || ''; s.hidden = !t; }
 
@@ -177,24 +198,24 @@ tr.actie td { background: #F7F1E6; }
   function schrijf(id, fn) {
     if (!db) return;
     var vorige = wachtrij[id] || Promise.resolve();
-    wachtrij[id] = vorige.then(fn).catch(function (e) {
-      zetStatus('Opslaan lukte niet. Probeer het zo nog eens.');
-    });
+    wachtrij[id] = vorige.then(fn).catch(function () { zetStatus('Opslaan lukte niet. Probeer het zo nog eens.'); });
   }
   function bijwerken(id, data) { schrijf(id, function () { return db.doc('producten/' + id).update(data); }); }
+  function wissen(id) { producten = producten.filter(function (x) { return x.id !== id; }); render(); schrijf(id, function () { return db.doc('producten/' + id).delete(); }); }
   function vind(id) { for (var i = 0; i < producten.length; i++) if (producten[i].id === id) return producten[i]; return null; }
 
-  function lijstPlus(id, d) {
-    var p = vind(id); if (!p) return;
-    var nieuw = Math.max(0, getal(p.lijst) + d);
-    p.lijst = nieuw; render();
-    bijwerken(id, { lijst: nieuw });
-  }
   function gekocht(id) {
     var p = vind(id); if (!p) return;
+    if (!vast(p)) { wissen(id); return; }
     var v = getal(p.voorraad) + tekopen(p);
     p.voorraad = v; p.lijst = 0; p.nodig = 0; render();
     bijwerken(id, { voorraad: v, lijst: 0, nodig: 0 });
+  }
+  function voorraadPlus(id, d) {
+    var p = vind(id); if (!p) return;
+    var v = Math.max(0, getal(p.voorraad) + d);
+    p.voorraad = v; render();
+    bijwerken(id, { voorraad: v });
   }
 
   /* ---------- weergave ---------- */
@@ -203,12 +224,8 @@ tr.actie td { background: #F7F1E6; }
   function renderLijst() {
     var open = producten.filter(function (p) { return tekopen(p) > 0; });
     var host = $('lijst');
-    if (!producten.length) {
-      host.innerHTML = '<div class="leeg"><h2>Nog geen producten</h2><p>Voeg bij Voorraad je eerste product toe, met de hoeveelheid die je minstens in huis wilt hebben. De lijst vult zich vanzelf zodra er iets onder dat minimum zakt.</p><a class="bknop" href="#voorraad">Naar voorraad</a></div>';
-      return;
-    }
     if (!open.length) {
-      host.innerHTML = '<div class="leeg"><h2>Alles in huis</h2><p>Niets onder het minimum. Tik bij Vaak gekocht op een product om het toch op de lijst te zetten.</p></div>';
+      host.innerHTML = '<div class="leeg"><h2>Niets te kopen</h2><p>Zet hierboven iets op de lijst. Vaste voorraad die onder het minimum zakt, komt er vanzelf bij.</p></div>';
       return;
     }
     var groepen = {};
@@ -220,7 +237,8 @@ tr.actie td { background: #F7F1E6; }
       var rijen = groepen[w].sort(function (a, b) { return (a.categorie || '').localeCompare(b.categorie || '', 'nl') || sorteer(a, b); });
       return '<article class="winkel"><h2>' + esc(w) + '<small>' + rijen.length + (rijen.length === 1 ? ' product' : ' producten') + '</small></h2>' +
         rijen.map(function (p) {
-          return '<div class="regel"><span class="naam">' + esc(p.naam) + (p.categorie ? '<span class="cat">' + esc(p.categorie) + '</span>' : '') + '</span>' +
+          var info = vast(p) ? 'Vaste voorraad · ' + fmt(getal(p.voorraad)) + ' in huis' : (p.categorie || '');
+          return '<div class="regel"><span class="naam">' + esc(p.naam) + (info ? '<span class="cat">' + esc(info) + '</span>' : '') + '</span>' +
             '<span class="aantal">' + fmt(tekopen(p)) + ' ' + esc(p.eenheid || '') + '</span>' +
             '<button class="vink" data-gekocht="' + esc(p.id) + '" aria-label="' + esc(p.naam) + ' is gekocht" title="Gekocht">' + VINK + '</button></div>';
         }).join('') + '</article>';
@@ -228,19 +246,22 @@ tr.actie td { background: #F7F1E6; }
   }
 
   function renderTegels() {
-    var vaak = producten.filter(function (p) { return p.vaak; }).sort(sorteer);
+    var vaste = producten.filter(vast).sort(function (a, b) { return (a.categorie || '').localeCompare(b.categorie || '', 'nl') || sorteer(a, b); });
     var host = $('tegels');
-    if (!vaak.length) {
+    if (!vaste.length) {
       host.className = '';
-      host.innerHTML = '<div class="leeg"><h2>Nog geen vaste producten</h2><p>Zet bij Voorraad een ster bij de producten die je steeds weer koopt. Ze verschijnen hier als tegels om aan te tikken.</p><a class="bknop" href="#voorraad">Naar voorraad</a></div>';
+      host.innerHTML = '<div class="leeg"><h2>Nog geen vaste voorraad</h2><p>Voeg hieronder toe wat je altijd in huis wilt hebben, met het minimum.</p></div>';
       return;
     }
     host.className = 'tegels';
-    host.innerHTML = vaak.map(function (p) {
-      var n = getal(p.lijst);
-      return '<div class="tegelwrap"><button class="tegel' + (n > 0 ? ' aan' : '') + '" data-plus="' + esc(p.id) + '" aria-label="' + esc(p.naam) + ' toevoegen aan de lijst">' +
-        '<span class="naam">' + esc(p.naam) + '</span><span class="winkelnaam">' + esc((p.winkel || '').trim() || '—') + '</span></button>' +
-        (n > 0 ? '<span class="badge" aria-hidden="true">' + fmt(n) + '</span><button class="min" data-min="' + esc(p.id) + '" aria-label="Eén minder van ' + esc(p.naam) + '">−</button>' : '') + '</div>';
+    host.innerHTML = vaste.map(function (p) {
+      var onder = getal(p.voorraad) < getal(p.minimum);
+      return '<div class="tegel vt' + (onder ? ' aan' : '') + '">' +
+        '<span class="naam">' + esc(p.naam) + '</span>' +
+        '<span class="vtgetal">' + fmt(getal(p.voorraad)) + ' <small>' + esc(p.eenheid || '') + '</small></span>' +
+        '<span class="winkelnaam">' + (onder ? 'Op de lijst · ' : '') + 'min. ' + fmt(getal(p.minimum)) + '</span>' +
+        '<span class="vtknop"><button class="pm" data-vmin="' + esc(p.id) + '" aria-label="Eén minder ' + esc(p.naam) + '">−</button><button class="pm" data-vplus="' + esc(p.id) + '" aria-label="Eén meer ' + esc(p.naam) + '">+</button></span>' +
+        '</div>';
     }).join('');
   }
 
@@ -256,19 +277,18 @@ tr.actie td { background: #F7F1E6; }
     var winkels = {};
     producten.forEach(function (p) { if ((p.winkel || '').trim()) winkels[p.winkel.trim()] = 1; });
     $('winkellijst').innerHTML = Object.keys(winkels).sort().map(function (w) { return '<option value="' + esc(w) + '">'; }).join('');
-    if (!producten.length) { host.innerHTML = ''; return; }
-    var rijen = producten.slice().sort(function (a, b) { return (a.categorie || '').localeCompare(b.categorie || '', 'nl') || sorteer(a, b); });
-    host.innerHTML = '<div class="tabelwrap"><table><thead><tr><th>Vaak</th><th>Product</th><th>Categorie</th><th>Eenheid</th><th>In huis</th><th>Minimum</th><th>Weekmenu</th><th>Winkel</th><th>Te kopen</th><th></th></tr></thead><tbody>' +
+    $('productlijst').innerHTML = producten.slice().sort(sorteer).map(function (p) { return '<option value="' + esc(p.naam) + '">'; }).join('');
+    var rijen = producten.filter(vast).sort(function (a, b) { return (a.categorie || '').localeCompare(b.categorie || '', 'nl') || sorteer(a, b); });
+    if (!rijen.length) { host.innerHTML = ''; return; }
+    host.innerHTML = '<div class="tabelwrap"><table><thead><tr><th>Product</th><th>Categorie</th><th>Eenheid</th><th>In huis</th><th>Minimum</th><th>Winkel</th><th>Te kopen</th><th></th></tr></thead><tbody>' +
       rijen.map(function (p) {
         var t = tekopen(p);
         return '<tr data-id="' + esc(p.id) + '"' + (t > 0 ? ' class="actie"' : '') + '>' +
-          '<td><button class="ster" data-ster="' + esc(p.id) + '" aria-pressed="' + (p.vaak ? 'true' : 'false') + '" aria-label="Vaak gekocht: ' + esc(p.naam) + '">★</button></td>' +
           '<td><input type="text" data-veld="naam" value="' + esc(p.naam) + '" aria-label="Product" maxlength="80"></td>' +
           '<td><select data-veld="categorie" aria-label="Categorie">' + opties(CATEGORIEEN, p.categorie, 'Kies…') + '</select></td>' +
           '<td><select data-veld="eenheid" aria-label="Eenheid">' + opties(EENHEDEN, p.eenheid) + '</select></td>' +
           '<td class="getal"><input type="number" data-veld="voorraad" min="0" step="any" value="' + getal(p.voorraad) + '" aria-label="In huis"></td>' +
           '<td class="getal"><input type="number" data-veld="minimum" min="0" step="any" value="' + getal(p.minimum) + '" aria-label="Minimum"></td>' +
-          '<td class="getal"><input type="number" data-veld="nodig" min="0" step="any" value="' + getal(p.nodig) + '" aria-label="Nodig voor het weekmenu"></td>' +
           '<td><input type="text" data-veld="winkel" list="winkellijst" value="' + esc(p.winkel || '') + '" aria-label="Winkel" maxlength="40"></td>' +
           '<td class="koop' + (t > 0 ? '' : ' nul') + '">' + (t > 0 ? fmt(t) : '–') + '</td>' +
           '<td><button class="weg" data-weg="' + esc(p.id) + '">Verwijder</button></td></tr>';
@@ -286,6 +306,9 @@ tr.actie td { background: #F7F1E6; }
     $('teller').textContent = geladen ? (n ? n + (n === 1 ? ' product' : ' producten') + ' te kopen' : 'Niets te kopen') : 'Laden…';
     $('exporteer').hidden = !n;
   }
+  $('tabel').addEventListener('focusout', function () {
+    setTimeout(function () { if (uitgesteld && !$('tabel').contains(document.activeElement)) { uitgesteld = false; render(); } }, 0);
+  });
 
   /* ---------- exporteren (bv. naar Apple Notities) ---------- */
   function exportTekst() {
@@ -308,9 +331,7 @@ tr.actie td { background: #F7F1E6; }
     $('expMelding').textContent = '';
     $('exp').showModal();
   };
-  $('expDeel').onclick = function () {
-    navigator.share({ title: 'Boodschappen', text: $('expTekst').value }).catch(function () {});
-  };
+  $('expDeel').onclick = function () { navigator.share({ title: 'Boodschappen', text: $('expTekst').value }).catch(function () {}); };
   $('expKopieer').onclick = function () {
     var t = $('expTekst').value;
     var klaar = function () { $('expMelding').textContent = 'Gekopieerd. Plak de lijst in een nieuwe notitie.'; };
@@ -318,19 +339,15 @@ tr.actie td { background: #F7F1E6; }
     else { $('expTekst').select(); document.execCommand('copy'); klaar(); }
   };
   $('expSluit').onclick = function () { $('exp').close(); };
-  $('tabel').addEventListener('focusout', function () {
-    setTimeout(function () { if (uitgesteld && !$('tabel').contains(document.activeElement)) { uitgesteld = false; render(); } }, 0);
-  });
 
   /* ---------- gebeurtenissen ---------- */
   document.addEventListener('click', function (e) {
     var t = e.target.closest('button'); if (!t) return;
     if (t.dataset.gekocht) gekocht(t.dataset.gekocht);
-    else if (t.dataset.plus) lijstPlus(t.dataset.plus, 1);
-    else if (t.dataset.min) lijstPlus(t.dataset.min, -1);
-    else if (t.dataset.ster) { var p = vind(t.dataset.ster); if (p) { p.vaak = !p.vaak; render(); bijwerken(p.id, { vaak: p.vaak }); } }
+    else if (t.dataset.vplus) voorraadPlus(t.dataset.vplus, 1);
+    else if (t.dataset.vmin) voorraadPlus(t.dataset.vmin, -1);
     else if (t.dataset.weg) {
-      if (t.dataset.sure === '1') { var id = t.dataset.weg; producten = producten.filter(function (x) { return x.id !== id; }); render(); schrijf(id, function () { return db.doc('producten/' + id).delete(); }); }
+      if (t.dataset.sure === '1') wissen(t.dataset.weg);
       else { t.dataset.sure = '1'; t.textContent = 'Zeker?'; setTimeout(function () { if (t.isConnected) { t.dataset.sure = ''; t.textContent = 'Verwijder'; } }, 3000); }
     }
   });
@@ -338,26 +355,48 @@ tr.actie td { background: #F7F1E6; }
     var el = e.target, tr = el.closest('tr'); if (!tr || !el.dataset.veld) return;
     var p = vind(tr.dataset.id); if (!p) return;
     var v = el.dataset.veld, w = el.value;
-    if (v === 'voorraad' || v === 'minimum' || v === 'nodig') w = getal(w);
+    if (v === 'voorraad' || v === 'minimum') w = getal(w);
     else w = String(w).trim();
     if (v === 'naam' && !w) { el.value = p.naam; return; }
     p[v] = w;
     var d = {}; d[v] = w; bijwerken(p.id, d);
     uitgesteld = true; renderTeller(); renderLijst(); renderTegels();
   });
+  // Iets manueel op de lijst zetten. Bestaat het product al, dan komt het aantal erbij.
+  $('snel').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!db) return;
+    var naam = $('s-naam').value.trim(); if (!naam) return;
+    var n = getal($('s-aantal').value) || 1;
+    var p = producten.filter(function (x) { return x.naam.trim().toLowerCase() === naam.toLowerCase(); })[0];
+    if (p) {
+      var l = getal(p.lijst) + n, d = { lijst: l };
+      if ($('s-winkel').value.trim()) d.winkel = $('s-winkel').value.trim();
+      Object.assign(p, d); render(); bijwerken(p.id, d);
+    } else {
+      db.collection('producten').add({ naam: naam, categorie: '', eenheid: $('s-eenheid').value, voorraad: 0, minimum: 0, vast: false,
+        winkel: $('s-winkel').value.trim(), nodig: 0, lijst: n }).catch(function () { zetStatus('Opslaan lukte niet. Probeer het zo nog eens.'); });
+    }
+    $('s-naam').value = ''; $('s-aantal').value = 1; $('s-naam').focus();
+  });
+  $('s-naam').addEventListener('change', function () {
+    var p = producten.filter(function (x) { return x.naam.trim().toLowerCase() === $('s-naam').value.trim().toLowerCase(); })[0];
+    if (p) { if (p.eenheid) $('s-eenheid').value = p.eenheid; if (p.winkel && !$('s-winkel').value) $('s-winkel').value = p.winkel; }
+  });
   $('nieuw').addEventListener('submit', function (e) {
     e.preventDefault();
     if (!db) return;
     var naam = $('n-naam').value.trim(); if (!naam) return;
-    var doc = { naam: naam, categorie: $('n-cat').value, eenheid: $('n-eenheid').value,
-      voorraad: getal($('n-voorraad').value), minimum: getal($('n-min').value),
-      winkel: $('n-winkel').value.trim(), vaak: $('n-vaak').checked, lijst: 0 };
-    db.collection('producten').add(doc).catch(function () { zetStatus('Opslaan lukte niet. Probeer het zo nog eens.'); });
-    $('n-naam').value = ''; $('n-voorraad').value = 0; $('n-vaak').checked = false; $('n-naam').focus();
+    var data = { categorie: $('n-cat').value, eenheid: $('n-eenheid').value,
+      voorraad: getal($('n-voorraad').value), minimum: getal($('n-min').value), winkel: $('n-winkel').value.trim(), vast: true };
+    var p = producten.filter(function (x) { return x.naam.trim().toLowerCase() === naam.toLowerCase(); })[0];
+    if (p) { Object.assign(p, data); render(); bijwerken(p.id, data); }
+    else db.collection('producten').add(Object.assign({ naam: naam, nodig: 0, lijst: 0 }, data)).catch(function () { zetStatus('Opslaan lukte niet. Probeer het zo nog eens.'); });
+    $('n-naam').value = ''; $('n-voorraad').value = 0; $('n-naam').focus();
   });
 
   /* ---------- navigatie via de hash ---------- */
-  var VIEWS = ['boodschappen', 'vaak', 'voorraad'];
+  var VIEWS = ['boodschappen', 'voorraad'];
   function toon() {
     var v = location.hash.replace('#', ''); if (VIEWS.indexOf(v) < 0) v = 'boodschappen';
     VIEWS.forEach(function (n) { $('v-' + n).hidden = n !== v; });
@@ -366,8 +405,9 @@ tr.actie td { background: #F7F1E6; }
   window.addEventListener('hashchange', toon);
 
   /* ---------- opstarten ---------- */
-  $('n-cat').innerHTML = opties(CATEGORIEEN, '', 'Kies…');
+  $('n-cat').innerHTML = opties(CATEGORIEEN, 'Onderhoud en huishouden', 'Kies…');
   $('n-eenheid').innerHTML = opties(EENHEDEN, 'stuks');
+  $('s-eenheid').innerHTML = opties(EENHEDEN, 'stuks');
   toon(); render();
 
   claude.use('db').then(function (d) {
