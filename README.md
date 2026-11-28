@@ -65,7 +65,7 @@ Eenmalig instellen:
 
 Goed om te weten:
 - Op het keukenscherm scan je de QR-code met je gsm om een pakje te volgen. **Open op dit scherm** opent de pagina van de vervoerder; dat venster sluit vanzelf na 3 minuten.
-- Een pakje verdwijnt als er een mail komt dat het geleverd is, twee dagen na de verwachte dag (Amazon stuurt geen leveringsmail), of als je op **Ontvangen** tikt.
+- Een pakje verdwijnt enkel als er een mail komt dat het geleverd is, of als je het afvinkt. Amazon stuurt geen leveringsmail: die pakjes vink je af als ze binnen zijn.
 - Eigen verkopen (Vinted), retours en Collect&Go van Delhaize worden overgeslagen.
 - Gmail wordt hoogstens om het kwartier gelezen; **Vernieuwen** kijkt meteen opnieuw.
 - Iedereen met de sleutel ziet dus ook welke bestellingen er onderweg zijn.
