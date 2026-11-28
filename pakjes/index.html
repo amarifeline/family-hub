@@ -152,16 +152,19 @@
     $('leeg').hidden = !data || lijst.length > 0;
     $('noot').hidden = !lijst.length;
     if (data && !lijst.length) $('leeg').innerHTML = 'Er zijn geen pakjes onderweg.<small>We kijken in het label Bestellingen en in de bestel- en verzendmails van de laatste 30 dagen.</small>';
-    const afhalen = lijst.filter((p) => p.status === 'klaar'), onderweg = lijst.filter((p) => p.status !== 'klaar');
+    const afhalen = lijst.filter((p) => p.status === 'klaar');
+    const onderweg = lijst.filter((p) => p.status === 'verzonden' || p.status === 'vandaag');
+    const besteld = lijst.filter((p) => p.status !== 'klaar' && p.status !== 'verzonden' && p.status !== 'vandaag');
     if (data) {
       const t = data.bijgewerkt ? new Date(data.bijgewerkt).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }) : '';
       const delen = [];
       if (afhalen.length) delen.push(afhalen.length + ' af te halen');
       if (onderweg.length) delen.push(onderweg.length + ' onderweg');
+      if (besteld.length) delen.push(besteld.length + ' besteld');
       $('sub').textContent = (delen.join(' · ') || 'Geen pakjes') + (t ? ' · bijgewerkt ' + t : '') + (data.proef ? ' · proefmodus' : '');
     }
     const groep = (titel, items) => items.length ? `<section class="groep"><h2 class="label">${titel}</h2><ul class="lijst">${items.map(rijHtml).join('')}</ul></section>` : '';
-    host.innerHTML = groep('Af te halen', afhalen) + groep('Onderweg', onderweg);
+    host.innerHTML = groep('Af te halen', afhalen) + groep('Onderweg', onderweg) + groep('Besteld', besteld);
     host.querySelectorAll('.pakje').forEach((el) => {
       const p = lijst.find((x) => x.id === el.dataset.id);
       const q = (a) => el.querySelector('[data-a="' + a + '"]');
