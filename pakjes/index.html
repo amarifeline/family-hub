@@ -16,7 +16,9 @@
 
   /* Twee blokken (af te halen, onderweg), elk pakje een rij */
   #groepen { display: flex; flex-direction: column; gap: 22px; flex: none; }
-  .groep h2 { margin: 0 0 10px 4px; }
+  .groep h2 { margin: 0 0 12px 4px; font-family: var(--serif); font-weight: normal; font-size: clamp(26px, 2.4vw, 34px); letter-spacing: 0; text-transform: none; color: var(--navy); display: flex; align-items: center; gap: 12px; }
+  .groep h2 .aantal { font-family: var(--sans); font-size: 14px; font-weight: 500; min-width: 30px; height: 30px; padding: 0 9px; border-radius: 999px; background: var(--navy); color: var(--wit); display: inline-grid; place-items: center; }
+  #groepen { gap: 34px !important; }
   .vink { flex: none; width: 48px; height: 48px; border-radius: 50%; border: 2px solid var(--lijn); background: var(--wit); display: grid; place-items: center; cursor: pointer; padding: 0; transition: background .2s, border-color .2s; }
   .vink svg { width: 26px; height: 26px; stroke: var(--wit); fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; opacity: 0; transition: opacity .2s; }
   .vink:hover { border-color: var(--navy); }
@@ -163,7 +165,7 @@
       if (besteld.length) delen.push(besteld.length + ' besteld');
       $('sub').textContent = (delen.join(' · ') || 'Geen pakjes') + (t ? ' · bijgewerkt ' + t : '') + (data.proef ? ' · proefmodus' : '');
     }
-    const groep = (titel, items) => items.length ? `<section class="groep"><h2 class="label">${titel}</h2><ul class="lijst">${items.map(rijHtml).join('')}</ul></section>` : '';
+    const groep = (titel, items) => items.length ? `<section class="groep"><h2>${titel}<span class="aantal">${items.length}</span></h2><ul class="lijst">${items.map(rijHtml).join('')}</ul></section>` : '';
     host.innerHTML = groep('Af te halen', afhalen) + groep('Onderweg', onderweg) + groep('Besteld', besteld);
     host.querySelectorAll('.pakje').forEach((el) => {
       const p = lijst.find((x) => x.id === el.dataset.id);
