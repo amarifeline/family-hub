@@ -58,6 +58,8 @@
   .qr svg { width: 100%; height: auto; display: block; }
   .qrtekst { font-family: var(--sans); font-size: 14px; color: var(--zacht); margin: 0 0 20px; }
   dialog .acties { justify-content: center; }
+  .code { margin: 18px 0 4px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .codewaarde { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: clamp(20px, 2.4vw, 26px); letter-spacing: .06em; background: var(--room); border-radius: 12px; padding: 10px 16px; user-select: all; overflow-wrap: anywhere; }
 </style>
 </head>
 <body data-home="../" data-terug="5">
@@ -78,10 +80,17 @@
   <dialog id="dlg">
     <h2 id="dTitel"></h2>
     <div class="label" id="dSub"></div>
-    <div class="qr" id="dQr"></div>
-    <p class="qrtekst">Scan met je gsm om het pakje te volgen.</p>
+    <div class="code" id="dCode" hidden>
+      <div class="label">Trackingcode</div>
+      <div class="codewaarde" id="dCodeWaarde"></div>
+      <button class="knop" id="dKopieer">Kopiëren</button>
+    </div>
+    <div id="dLinkDeel">
+      <div class="qr" id="dQr"></div>
+      <p class="qrtekst">Scan met je gsm om het pakje te volgen.</p>
+    </div>
     <div class="acties">
-      <button class="knop" id="dOpen">Open op dit scherm</button>
+      <button class="knop" id="dOpen" hidden>Open op dit scherm</button>
       <button class="knop vol" id="dSluit">Sluiten</button>
     </div>
   </dialog>
@@ -137,7 +146,7 @@
 
   function rijHtml(p) {
     const wat = p.wat || (p.ordernr ? 'Bestelling ' + p.ordernr : 'Bestelling');
-    const knop = p.link ? `<button class="knop vol" data-a="volg">${p.volgen ? 'Volgen' : 'Bestelling bekijken'}</button>` : '';
+    const knop = (p.link || p.code) ? `<button class="knop vol" data-a="volg">${p.volgen || (p.link && p.code) ? 'Volgen' : p.link ? 'Bestelling bekijken' : 'Trackingcode'}</button>` : '';
     const ico = p.status === 'klaar' ? ICOON.winkel : p.status === 'besteld' ? ICOON.bon : ICOON.doos;
     const w = wanneer(p);
     return `<li class="pakje" data-st="${esc(p.status)}" data-id="${esc(p.id)}">
@@ -198,15 +207,32 @@
   }
 
   function toonVolgen(p) {
-    openLink = p.link;
+    openLink = p.link || '';
     $('dTitel').textContent = p.wat || (p.ordernr ? 'Bestelling ' + p.ordernr : p.winkel);
     $('dSub').textContent = p.winkel + (p.ordernr && p.wat ? ' · ' + p.ordernr : '');
-    try {
-      const qr = qrcode(0, 'M'); qr.addData(p.link); qr.make();
-      $('dQr').innerHTML = qr.createSvgTag({ cellSize: 6, margin: 3, scalable: true });
-    } catch (e) { $('dQr').innerHTML = ''; }
+    $('dCode').hidden = !p.code;
+    $('dCodeWaarde').textContent = p.code || '';
+    $('dKopieer').textContent = 'Kopiëren';
+    $('dLinkDeel').hidden = !p.link;
+    $('dOpen').hidden = !p.link;
+    $('dQr').innerHTML = '';
+    if (p.link) {
+      try {
+        const qr = qrcode(0, 'M'); qr.addData(p.link); qr.make();
+        $('dQr').innerHTML = qr.createSvgTag({ cellSize: 6, margin: 3, scalable: true });
+      } catch (e) { /* geen QR */ }
+    }
     $('dlg').showModal();
   }
+  $('dKopieer').onclick = async () => {
+    const code = $('dCodeWaarde').textContent;
+    try { await navigator.clipboard.writeText(code); $('dKopieer').textContent = 'Gekopieerd'; }
+    catch (e) {
+      const r = document.createRange(); r.selectNodeContents($('dCodeWaarde'));
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      $('dKopieer').textContent = 'Geselecteerd';
+    }
+  };
   $('dSluit').onclick = () => $('dlg').close();
   $('dOpen').onclick = () => {
     // Nieuw venster; het keukenscherm sluit het zelf na 3 minuten (er is daar geen knop om terug te gaan).
